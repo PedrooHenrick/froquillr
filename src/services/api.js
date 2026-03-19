@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 // Usa o cliente Supabase já existente no projeto (evita múltiplas instâncias)
 async function getToken() {
   try {
@@ -31,7 +33,7 @@ async function getCachedToken() {
 // Inicializa token imediatamente
 getCachedToken()
 
-const api = axios.create({ baseURL: '/api' })
+const api = axios.create({ baseURL: BASE_URL })
 
 api.interceptors.request.use(async (config) => {
   const token = await getCachedToken()
@@ -54,7 +56,7 @@ api.interceptors.response.use(
 )
 
 export function renderPage(sessionId, page, zoom = 1.5) {
-  return `/api/render/${sessionId}/${page}?zoom=${zoom}&t=${Date.now()}&tk=${_cachedToken}`
+  return `${BASE_URL}/render/${sessionId}/${page}?zoom=${zoom}&t=${Date.now()}&tk=${_cachedToken}`
 }
 
 export const extractText = (sessionId, page) =>
@@ -83,7 +85,7 @@ export const saveTextEdits = (sessionId, edits) => {
 }
 
 export function downloadUrl(sessionId) {
-  return `/api/download/${sessionId}?tk=${_cachedToken}`
+  return `${BASE_URL}/download/${sessionId}?tk=${_cachedToken}`
 }
 
 export const deleteSession = (sessionId) =>
