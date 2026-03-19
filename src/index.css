@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 30 20% 97%;
+    --foreground: 150 25% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 25% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 25% 8%;
+
+    --primary: 22 88% 50%;
+    --primary-hover: 22 88% 43%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 150 25% 14%;
+    --secondary-foreground: 30 100% 96%;
+
+    --muted: 30 15% 92%;
+    --muted-foreground: 150 8% 42%;
+
+    --accent: 22 80% 94%;
+    --accent-foreground: 22 88% 30%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 30 12% 88%;
+    --input: 30 12% 88%;
+    --ring: 22 88% 50%;
+    --radius: 0.6rem;
+    --surface: 30 15% 98%;
+
+    --shadow-card: 0 1px 3px 0 hsl(22 30% 20% / 0.07);
+    --shadow-elevated: 0 8px 30px -8px hsl(22 50% 25% / 0.15);
+    --shadow-glow: 0 0 20px 4px hsl(22 88% 50% / 0.3);
+  }
+
+  .dark {
+    --background: 150 25% 6%;
+    --foreground: 30 25% 92%;
+    --card: 150 20% 9%;
+    --card-foreground: 30 25% 92%;
+    --popover: 150 20% 9%;
+    --popover-foreground: 30 25% 92%;
+    --primary: 22 90% 54%;
+    --primary-hover: 22 90% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 150 20% 14%;
+    --secondary-foreground: 30 25% 90%;
+    --muted: 150 18% 13%;
+    --muted-foreground: 30 12% 52%;
+    --accent: 22 45% 15%;
+    --accent-foreground: 22 90% 68%;
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 150 14% 15%;
+    --input: 150 14% 15%;
+    --ring: 22 90% 54%;
+    --surface: 150 22% 8%;
+    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.25);
+    --shadow-elevated: 0 8px 30px -8px hsl(0 0% 0% / 0.4);
+    --shadow-glow: 0 0 20px 4px hsl(22 90% 54% / 0.4);
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+.font-display {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+/* ── Editor PDF ── */
+.selection-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed;
+  border-radius: 2px;
+}
