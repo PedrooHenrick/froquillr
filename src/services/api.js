@@ -1,63 +1,25 @@
 import axios from 'axios'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-// Usa o cliente Supabase já existente no projeto (evita múltiplas instâncias)
-async function getToken() {
-  try {
-    // Lê direto do localStorage onde o Supabase salva a sessão
-    const storageKey = Object.keys(localStorage).find(k => k.includes('auth-token'))
-    if (storageKey) {
-      const data = JSON.parse(localStorage.getItem(storageKey) || '{}')
-      const token = data?.access_token || data?.session?.access_token
-      if (token) return token
-    }
-  } catch {}
-  return ''
-}
+const api = axios.create({ baseURL: API_BASE })
 
-// Cache do token
-let _cachedToken = ''
-let _tokenFetched = false
-
-async function getCachedToken() {
-  if (!_tokenFetched || !_cachedToken) {
-    _cachedToken = await getToken()
-    _tokenFetched = true
-    // Atualiza cache a cada 50 minutos
-    setTimeout(() => { _tokenFetched = false }, 50 * 60 * 1000)
-  }
-  return _cachedToken
-}
-
-// Inicializa token imediatamente
-getCachedToken()
-
-const api = axios.create({ baseURL: BASE_URL })
-
-api.interceptors.request.use(async (config) => {
-  const token = await getCachedToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
-
+// ── Se der 404 de sessão, limpa o sessionStorage para forçar novo upload ──
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      _tokenFetched = false
-      window.location.href = '/auth'
+  res => res,
+  err => {
+    if (err.response?.status === 404) {
+      // Sessão expirou no Railway — limpa todas as sessões salvas
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('session_')) sessionStorage.removeItem(key)
+      })
     }
-    if (error.response?.status === 429) {
-      alert('Muitas requisições. Aguarde e tente novamente.')
-    }
-    return Promise.reject(error)
+    return Promise.reject(err)
   }
 )
 
-export function renderPage(sessionId, page, zoom = 1.5) {
-  return `${BASE_URL}/render/${sessionId}/${page}?zoom=${zoom}&t=${Date.now()}&tk=${_cachedToken}`
-}
+export const renderPage = (sessionId, page, zoom = 1.5) =>
+  `${API_BASE}/render/${sessionId}/${page}?zoom=${zoom}&t=${Date.now()}`
 
 export const extractText = (sessionId, page) =>
   api.post(`/extract/${sessionId}/${page}`).then(r => r.data.blocks)
@@ -84,9 +46,8 @@ export const saveTextEdits = (sessionId, edits) => {
   return api.post('/save-text', form)
 }
 
-export function downloadUrl(sessionId) {
-  return `${BASE_URL}/download/${sessionId}?tk=${_cachedToken}`
-}
+export const downloadUrl = (sessionId) =>
+  `${API_BASE}/download/${sessionId}`
 
 export const deleteSession = (sessionId) =>
   api.delete(`/session/${sessionId}`)
