@@ -46,7 +46,6 @@ const Editor = () => {
   // Aguarda token ficar disponível
   useEffect(() => {
     import("@/services/api").then(({ default: api }) => {
-      // getToken já foi chamado no import, aguarda cache
       setTimeout(() => setTokenReady(true), 300);
     });
   }, []);
@@ -143,7 +142,7 @@ const Editor = () => {
   const refreshImage = () => setImgKey(k => k + 1);
   const sb = (msg: string) => setStatus(msg);
 
-  // ── Handlers (mesmos do editor original) ──────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────
   const handleExtract = async () => {
     if (!session) return;
     setExtracting(true);
@@ -234,8 +233,10 @@ const Editor = () => {
       setPending([]);
       setTextEdits({});
       setBlocks(prev => prev.map(b => ({ ...b, _edited: false, _new_text: undefined })));
-      refreshImage();
       sb("✅ Salvo com sucesso!");
+
+      // Aguarda o Supabase Storage atualizar antes de recarregar a imagem
+      setTimeout(() => refreshImage(), 800);
 
       // Atualiza status no Supabase
       await supabase.from("documents").update({ status: "completed" }).eq("id", id);
@@ -257,7 +258,7 @@ const Editor = () => {
   // ── Renders ───────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" >
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <div className="w-10 h-10 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
         <p className="text-gray-400 text-sm">Carregando editor...</p>
       </div>
@@ -266,7 +267,7 @@ const Editor = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" >
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-red-400">{error}</p>
         <button onClick={() => navigate("/dashboard")} className="text-orange-400 underline text-sm">
           Voltar ao painel
@@ -278,7 +279,7 @@ const Editor = () => {
   if (!session) return null;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-50" >
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       <Toolbar
         mode={mode}
         setMode={setMode}
@@ -297,7 +298,7 @@ const Editor = () => {
       />
 
       {/* Status bar */}
-      <div className="text-gray-400 text-xs px-3 py-1 border-b border-white/10 flex items-center gap-2" >
+      <div className="text-gray-400 text-xs px-3 py-1 border-b border-white/10 flex items-center gap-2">
         <button onClick={() => navigate("/dashboard")} className="text-orange-400 hover:text-orange-300 mr-2">
           ← Painel
         </button>
@@ -308,7 +309,7 @@ const Editor = () => {
 
       {/* Main */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-6" >
+        <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-6">
           <div className="w-full max-w-3xl">
             <PDFCanvas
               key={imgKey}
