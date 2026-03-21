@@ -33,6 +33,27 @@ async function uploadToRailway(filePath: string, filename: string) {
   return data;
 }
 
+// ── Salva PDF editado do Railway de volta no Supabase ─────────────────────
+async function syncEditedPdfToSupabase(sessionId: string, filePath: string) {
+  try {
+    const res = await fetch(`${API_BASE}/download/${sessionId}`);
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    const { error } = await supabase.storage
+      .from("pdfs")
+      .update(filePath, blob, { contentType: "application/pdf", upsert: true });
+    if (error) {
+      console.error("[sync] Erro ao salvar PDF editado no Supabase:", error);
+      return false;
+    }
+    console.log("[sync] PDF editado salvo no Supabase ✅");
+    return true;
+  } catch (e) {
+    console.error("[sync] Falha ao sincronizar:", e);
+    return false;
+  }
+}
+
 const Editor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -95,7 +116,7 @@ const Editor = () => {
           return;
         }
 
-        // Primeira vez — baixa original do Supabase e envia pro Railway
+        // Primeira vez — baixa do Supabase (já pode ser o PDF editado) e envia pro Railway
         sb("Carregando documento...");
         const sessionData = await uploadToRailway(doc.file_path, doc.name);
         sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
@@ -111,7 +132,7 @@ const Editor = () => {
     init();
   }, [id, user?.id]);
 
-  // ── Sai da aba — salva estado das edições no sessionStorage ─────────
+  // ── Sai da aba — verifica sessão ao voltar ────────────────────────────
   useEffect(() => {
     if (!id) return;
     const handle = async () => {
@@ -125,19 +146,19 @@ const Editor = () => {
         return;
       }
 
-      // Voltando à aba — verifica se sessão ainda existe
+      // Voltando à aba — verifica se sessão ainda existe no Railway
       const stored = sessionStorage.getItem(`session_${id}`);
       if (!stored) return;
       const parsed = JSON.parse(stored);
       try {
         const res = await fetch(`${API_BASE}/session-check/${parsed.session_id}`);
         if (!res.ok) {
-          // Railway reiniciou — sobe o original e reaaplica edições salvas
+          // Railway reiniciou — sobe o PDF do Supabase (já é o editado se sincronizou)
           const storedDoc = sessionStorage.getItem(`doc_${id}`);
           if (!storedDoc) return;
           const doc = JSON.parse(storedDoc);
 
-          // Sobe original do Supabase pro Railway
+          sb("Reconectando...");
           const sessionData = await uploadToRailway(doc.file_path, doc.name);
           sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
           setSession(sessionData);
@@ -151,6 +172,8 @@ const Editor = () => {
             setPage(pg || 0);
             if ((p?.length > 0) || Object.keys(t || {}).length > 0) {
               sb("⚠️ Edições pendentes restauradas · Aperte Salvar para aplicar");
+            } else {
+              sb('Clique em "Extrair Textos" para começar');
             }
           }
 
@@ -244,7 +267,7 @@ const Editor = () => {
     sb("Imagem colada · Aperte Salvar");
   };
 
-  // ── Salvar — tudo fica na memória do Railway ──────────────────────────
+  // ── Salvar — aplica edições E sincroniza PDF editado pro Supabase ─────
   const handleSave = async () => {
     if (!session || !hasPending) return;
     setSaving(true); sb("💾 Salvando...");
@@ -262,8 +285,15 @@ const Editor = () => {
       }));
       if (edits.length > 0) await saveTextEdits(session.session_id, edits);
 
-      // NÃO salva no Supabase — PDF editado fica só na memória do Railway
-      // Usuário baixa pelo botão Baixar direto do Railway
+      // ── Sincroniza PDF editado de volta pro Supabase ──────────────────
+      // Assim quando o Railway hibernar e a sessão cair,
+      // ao voltar ele sobe a versão mais recente — não o original.
+      const storedDoc = sessionStorage.getItem(`doc_${id}`);
+      if (storedDoc) {
+        const { file_path } = JSON.parse(storedDoc);
+        sb("💾 Sincronizando PDF...");
+        await syncEditedPdfToSupabase(session.session_id, file_path);
+      }
 
       setPending([]);
       setTextEdits({});
