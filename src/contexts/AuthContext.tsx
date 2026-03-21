@@ -71,11 +71,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // Mudanças de auth — ignora TOKEN_REFRESHED para não causar re-render
+    // Mudanças de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        // TOKEN_REFRESHED acontece ao voltar à aba — não precisa re-renderizar
-        if (event === "TOKEN_REFRESHED") return;
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
