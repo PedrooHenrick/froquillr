@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +17,6 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// ── Faz upload do PDF para o Railway ──────────────────────────────────────
 async function uploadToRailway(pdfBlob: Blob, filename: string) {
   const form = new FormData();
   form.append("file", new File([pdfBlob], filename, { type: "application/pdf" }));
@@ -27,7 +26,6 @@ async function uploadToRailway(pdfBlob: Blob, filename: string) {
   return data;
 }
 
-// ── Baixa PDF do Supabase Storage ─────────────────────────────────────────
 async function downloadFromSupabase(filePath: string, filename: string) {
   const { data: urlData } = await supabase.storage
     .from("pdfs")
@@ -37,7 +35,6 @@ async function downloadFromSupabase(filePath: string, filename: string) {
   return new File([blob], filename, { type: "application/pdf" });
 }
 
-// ── Salva PDF editado de volta no Supabase Storage ────────────────────────
 async function saveBackToSupabase(sessionId: string, filePath: string) {
   const res  = await fetch(`${API_BASE}/download/${sessionId}`);
   const blob = await res.blob();
@@ -52,7 +49,8 @@ const Editor = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const initialized = useRef(false); // garante que initEditor roda só uma vez
+  // ── Garante que initEditor roda só UMA vez — não recarrega ao trocar aba
+  const initialized = useRef(false);
 
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState("");
@@ -65,18 +63,19 @@ const Editor = () => {
   const [saving, setSaving]         = useState(false);
   const [status, setStatus]         = useState('Clique em "Extrair Textos" para começar');
   const [hoveredBlock, setHoveredBlock] = useState(null);
+  const [pending, setPending]       = useState<any[]>([]);
   const [textEdits, setTextEdits]   = useState<any>({});
   const [imgTimestamp, setImgTimestamp] = useState(Date.now());
 
-  const hasPending = Object.keys(textEdits).length > 0;
+  const hasPending = pending.length > 0 || Object.keys(textEdits).length > 0;
   const editCount  = Object.keys(textEdits).length;
   const refreshImage = () => setImgTimestamp(Date.now());
   const sb = (msg: string) => setStatus(msg);
 
-  // ── Inicia o editor — roda só UMA vez ─────────────────────────────────
+  // ── Init — roda só uma vez, ignora re-renders do auth ───────────────
   useEffect(() => {
     if (!id || !user) return;
-    if (initialized.current) return; // já inicializou, não recarrega
+    if (initialized.current) return;
     initialized.current = true;
 
     const init = async () => {
@@ -92,10 +91,10 @@ const Editor = () => {
         setDocInfo(doc);
         sessionStorage.setItem(`doc_${id}`, JSON.stringify(doc));
 
-        // Usa sessão salva se existir — sem recarregar
-        const storedSession = sessionStorage.getItem(`session_${id}`);
-        if (storedSession) {
-          setSession(JSON.parse(storedSession));
+        // Usa sessão salva se existir
+        const stored = sessionStorage.getItem(`session_${id}`);
+        if (stored) {
+          setSession(JSON.parse(stored));
           setLoading(false);
           return;
         }
@@ -105,8 +104,8 @@ const Editor = () => {
         const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
         const sessionData = await uploadToRailway(pdfFile, doc.name);
         sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
-        setSession(sessionData);
         await supabase.from("documents").update({ status: "editing" }).eq("id", id);
+        setSession(sessionData);
       } catch (e: any) {
         setError(e.message || "Erro ao carregar editor.");
       } finally {
@@ -115,23 +114,19 @@ const Editor = () => {
     };
 
     init();
-  }, [id, user]); // deps necessárias mas o ref garante execução única
+  }, [id, user?.id]); // usa user.id — não recria quando o token atualiza
 
-  // ── Quando volta para a aba — reconecta silenciosamente se necessário ──
+  // ── Volta à aba — reconecta silenciosamente se Railway reiniciou ──────
   useEffect(() => {
     if (!id) return;
-
-    const handleVisibility = async () => {
+    const handle = async () => {
       if (document.visibilityState !== "visible") return;
-
-      const storedSession = sessionStorage.getItem(`session_${id}`);
-      if (!storedSession) return;
-
-      const parsed = JSON.parse(storedSession);
+      const stored = sessionStorage.getItem(`session_${id}`);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
       try {
         const res = await fetch(`${API_BASE}/session-check/${parsed.session_id}`);
         if (!res.ok) {
-          // Railway reiniciou — reconecta sem mostrar loading ou recarregar página
           const storedDoc = sessionStorage.getItem(`doc_${id}`);
           if (!storedDoc) return;
           const doc = JSON.parse(storedDoc);
@@ -144,12 +139,11 @@ const Editor = () => {
         }
       } catch { /* silencioso */ }
     };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    document.addEventListener("visibilitychange", handle);
+    return () => document.removeEventListener("visibilitychange", handle);
   }, [id]);
 
-  // ── Extrair textos ─────────────────────────────────────────────────────
+  // ── Extrair ───────────────────────────────────────────────────────────
   const handleExtract = async () => {
     if (!session) return;
     setExtracting(true); sb("Extraindo textos...");
@@ -161,10 +155,9 @@ const Editor = () => {
     finally { setExtracting(false); }
   };
 
-  // ── Edição de texto ────────────────────────────────────────────────────
+  // ── Edição de texto ───────────────────────────────────────────────────
   const handleBlockClick = (block: any) => {
     if (mode !== "edit") return;
-    // Suporte ao InlineEditor (vem com _confirmedText)
     if (block._confirmedText !== undefined) {
       const newText = block._confirmedText;
       if (!newText || newText === block.text) {
@@ -178,7 +171,6 @@ const Editor = () => {
       }
       return;
     }
-    // Fallback prompt
     const newText = prompt("Editar texto:", block._new_text || block.text);
     if (newText === null) return;
     if (newText === block.text) {
@@ -204,64 +196,54 @@ const Editor = () => {
     }
   };
 
-  // ── Seleção (apagar / assinatura) ─────────────────────────────────────
+  // ── Erase / Signature ────────────────────────────────────────────────
   const handleSelection = async (rect: any) => {
     if (!session) return;
     if (mode === "erase") {
       if (!window.confirm("Apagar o conteúdo desta área?")) return;
-      sb("Apagando...");
-      try {
-        await eraseArea(session.session_id, page, rect);
-        if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
-        refreshImage();
-        sb("Área apagada");
-      } catch (e: any) { sb(`❌ Erro ao apagar: ${e.message}`); }
+      setPending(prev => [...prev, { type: "erase", page, rect }]);
+      sb("Área marcada · Aperte Salvar");
     } else if (mode === "signature") {
       const input = document.createElement("input");
       input.type = "file"; input.accept = "image/*";
-      input.onchange = async (e: any) => {
+      input.onchange = (e: any) => {
         const file = e.target.files[0];
-        if (!file) return;
-        sb("Adicionando assinatura...");
-        try {
-          await addSignature(session.session_id, page, rect, file);
-          if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
-          refreshImage();
-          sb("✅ Assinatura adicionada");
-        } catch (e: any) { sb(`❌ Erro: ${e.message}`); }
+        if (file) {
+          setPending(prev => [...prev, { type: "signature", page, rect, file }]);
+          sb("Assinatura marcada · Aperte Salvar");
+        }
       };
       input.click();
     }
   };
 
-  const handlePaste = async (file: File) => {
-    if (!session) return;
+  const handlePaste = (file: File) => {
     const rect = { x_pct: 25, y_pct: 25, w_pct: 50, h_pct: 20 };
-    sb("Adicionando imagem...");
-    try {
-      await addSignature(session.session_id, page, rect, file);
-      if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
-      refreshImage();
-      sb("✅ Imagem adicionada");
-    } catch (e: any) { sb(`❌ Erro: ${e.message}`); }
+    setPending(prev => [...prev, { type: "signature", page, rect, file }]);
+    sb("Imagem colada · Aperte Salvar");
   };
 
-  // ── Salvar (apenas edições de texto) ──────────────────────────────────
+  // ── Salvar ────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    const hasTextEdits = Object.keys(textEdits).length > 0;
-    if (!session || !hasTextEdits) return;
+    if (!session || !hasPending) return;
     setSaving(true); sb("💾 Salvando...");
     try {
+      for (const p of pending.filter(p => p.type === "erase"))
+        await eraseArea(session.session_id, p.page, p.rect);
+      for (const p of pending.filter(p => p.type === "signature"))
+        await addSignature(session.session_id, p.page, p.rect, p.file);
+
       const edits = Object.values(textEdits).map(({ block, new_text, page }: any) => ({
         page, block_id: block.id, original_text: block.text, new_text,
         x0: block.x0, y0: block.y0, x1: block.x1, y1: block.y1,
         font_name: block.font_name, color_rgb: block.color_rgb, align: block.align,
       }));
-      await saveTextEdits(session.session_id, edits);
+      if (edits.length > 0) await saveTextEdits(session.session_id, edits);
 
-      // Salva no Supabase imediatamente após aplicar
+      // Salva PDF editado de volta no Supabase Storage
       if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
 
+      setPending([]);
       setTextEdits({});
       setBlocks(prev => prev.map(b => ({ ...b, _edited: false, _new_text: undefined })));
       refreshImage();
@@ -279,7 +261,7 @@ const Editor = () => {
     sb("Página " + (n + 1));
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
       <div className="w-10 h-10 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
