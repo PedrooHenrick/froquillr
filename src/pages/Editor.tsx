@@ -111,33 +111,58 @@ const Editor = () => {
     init();
   }, [id, user?.id]);
 
-  // ── Volta à aba — reconecta silenciosamente se Railway reiniciou ──────
+  // ── Sai da aba — salva estado das edições no sessionStorage ─────────
   useEffect(() => {
     if (!id) return;
     const handle = async () => {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState === "hidden") {
+        // Salva estado atual das edições pendentes no sessionStorage
+        sessionStorage.setItem(`edits_${id}`, JSON.stringify({
+          pending,
+          textEdits,
+          page,
+        }));
+        return;
+      }
+
+      // Voltando à aba — verifica se sessão ainda existe
       const stored = sessionStorage.getItem(`session_${id}`);
       if (!stored) return;
       const parsed = JSON.parse(stored);
       try {
         const res = await fetch(`${API_BASE}/session-check/${parsed.session_id}`);
         if (!res.ok) {
-          // Railway reiniciou — baixa ORIGINAL do Supabase (não versão editada)
+          // Railway reiniciou — sobe o original e reaaplica edições salvas
           const storedDoc = sessionStorage.getItem(`doc_${id}`);
           if (!storedDoc) return;
           const doc = JSON.parse(storedDoc);
+
+          // Sobe original do Supabase pro Railway
           const sessionData = await uploadToRailway(doc.file_path, doc.name);
           sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
           setSession(sessionData);
+
+          // Restaura estado das edições pendentes
+          const savedEdits = sessionStorage.getItem(`edits_${id}`);
+          if (savedEdits) {
+            const { pending: p, textEdits: t, page: pg } = JSON.parse(savedEdits);
+            setPending(p || []);
+            setTextEdits(t || {});
+            setPage(pg || 0);
+            if ((p?.length > 0) || Object.keys(t || {}).length > 0) {
+              sb("⚠️ Edições pendentes restauradas · Aperte Salvar para aplicar");
+            }
+          }
+
           setBlocks([]);
           refreshImage();
-          sb("Sessão reconectada · Extraia os textos novamente");
         }
       } catch { /* silencioso */ }
     };
+
     document.addEventListener("visibilitychange", handle);
     return () => document.removeEventListener("visibilitychange", handle);
-  }, [id]);
+  }, [id, pending, textEdits, page]);
 
   // ── Extrair ───────────────────────────────────────────────────────────
   const handleExtract = async () => {
@@ -232,7 +257,8 @@ const Editor = () => {
       const edits = Object.values(textEdits).map(({ block, new_text, page }: any) => ({
         page, block_id: block.id, original_text: block.text, new_text,
         x0: block.x0, y0: block.y0, x1: block.x1, y1: block.y1,
-        font_name: block.font_name, color_rgb: block.color_rgb, align: block.align,
+        font_name: block.font_name, color_rgb: block.color_rgb,
+        align: block.align, source: block.source,
       }));
       if (edits.length > 0) await saveTextEdits(session.session_id, edits);
 
