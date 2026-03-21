@@ -17,30 +17,20 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-async function uploadToRailway(pdfBlob: Blob, filename: string) {
-  const form = new FormData();
-  form.append("file", new File([pdfBlob], filename, { type: "application/pdf" }));
-  const res  = await fetch(`${API_BASE}/upload`, { method: "POST", body: form });
-  const data = await res.json();
-  if (!data.session_id) throw new Error("Falha no upload para o editor.");
-  return data;
-}
-
-async function downloadFromSupabase(filePath: string, filename: string) {
+// ── Baixa PDF original do Supabase e envia pro Railway ────────────────────
+async function uploadToRailway(filePath: string, filename: string) {
   const { data: urlData } = await supabase.storage
     .from("pdfs").createSignedUrl(filePath, 600);
   if (!urlData?.signedUrl) throw new Error("Erro ao acessar o arquivo.");
   const blob = await fetch(urlData.signedUrl).then(r => r.blob());
-  return new File([blob], filename, { type: "application/pdf" });
-}
+  const file = new File([blob], filename, { type: "application/pdf" });
 
-async function saveBackToSupabase(sessionId: string, filePath: string) {
-  const res  = await fetch(`${API_BASE}/download/${sessionId}`);
-  const blob = await res.blob();
-  const { error } = await supabase.storage
-    .from("pdfs")
-    .update(filePath, blob, { contentType: "application/pdf", upsert: true });
-  if (error) throw new Error("Erro ao salvar no Supabase: " + error.message);
+  const form = new FormData();
+  form.append("file", file);
+  const res  = await fetch(`${API_BASE}/upload`, { method: "POST", body: form });
+  const data = await res.json();
+  if (!data.session_id) throw new Error("Falha no upload para o editor.");
+  return data;
 }
 
 const Editor = () => {
@@ -53,7 +43,6 @@ const Editor = () => {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState("");
   const [session, setSession]       = useState<any>(null);
-  const [docInfo, setDocInfo]       = useState<any>(null);
   const [page, setPage]             = useState(0);
   const [mode, setMode]             = useState("edit");
   const [blocks, setBlocks]         = useState<any[]>([]);
@@ -70,6 +59,14 @@ const Editor = () => {
   const refreshImage = () => setImgTimestamp(Date.now());
   const sb = (msg: string) => setStatus(msg);
 
+  // ── Keep-alive — evita Railway hibernar ───────────────────────────────
+  useEffect(() => {
+    const ping = () => fetch(`${API_BASE}/`).catch(() => {});
+    ping();
+    const interval = setInterval(ping, 8 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // ── Init — roda só UMA vez ────────────────────────────────────────────
   useEffect(() => {
     if (!id || !user?.id) return;
@@ -83,9 +80,14 @@ const Editor = () => {
           .eq("id", id).eq("user_id", user.id).single();
 
         if (docErr || !doc) { setError("Documento não encontrado."); return; }
-        setDocInfo(doc);
-        sessionStorage.setItem(`doc_${id}`, JSON.stringify(doc));
 
+        // Guarda file_path original — nunca sobrescreve
+        sessionStorage.setItem(`doc_${id}`, JSON.stringify({
+          file_path: doc.file_path,
+          name: doc.name,
+        }));
+
+        // Usa sessão salva se Railway ainda tem ela
         const stored = sessionStorage.getItem(`session_${id}`);
         if (stored) {
           setSession(JSON.parse(stored));
@@ -93,9 +95,9 @@ const Editor = () => {
           return;
         }
 
+        // Primeira vez — baixa original do Supabase e envia pro Railway
         sb("Carregando documento...");
-        const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
-        const sessionData = await uploadToRailway(pdfFile, doc.name);
+        const sessionData = await uploadToRailway(doc.file_path, doc.name);
         sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
         await supabase.from("documents").update({ status: "editing" }).eq("id", id);
         setSession(sessionData);
@@ -109,7 +111,7 @@ const Editor = () => {
     init();
   }, [id, user?.id]);
 
-  // ── Volta à aba — reconecta se Railway reiniciou ──────────────────────
+  // ── Volta à aba — reconecta silenciosamente se Railway reiniciou ──────
   useEffect(() => {
     if (!id) return;
     const handle = async () => {
@@ -120,15 +122,16 @@ const Editor = () => {
       try {
         const res = await fetch(`${API_BASE}/session-check/${parsed.session_id}`);
         if (!res.ok) {
+          // Railway reiniciou — baixa ORIGINAL do Supabase (não versão editada)
           const storedDoc = sessionStorage.getItem(`doc_${id}`);
           if (!storedDoc) return;
           const doc = JSON.parse(storedDoc);
-          const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
-          const sessionData = await uploadToRailway(pdfFile, doc.name);
+          const sessionData = await uploadToRailway(doc.file_path, doc.name);
           sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
           setSession(sessionData);
           setBlocks([]);
           refreshImage();
+          sb("Sessão reconectada · Extraia os textos novamente");
         }
       } catch { /* silencioso */ }
     };
@@ -216,7 +219,7 @@ const Editor = () => {
     sb("Imagem colada · Aperte Salvar");
   };
 
-  // ── Salvar ────────────────────────────────────────────────────────────
+  // ── Salvar — tudo fica na memória do Railway ──────────────────────────
   const handleSave = async () => {
     if (!session || !hasPending) return;
     setSaving(true); sb("💾 Salvando...");
@@ -233,14 +236,15 @@ const Editor = () => {
       }));
       if (edits.length > 0) await saveTextEdits(session.session_id, edits);
 
-      if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
+      // NÃO salva no Supabase — PDF editado fica só na memória do Railway
+      // Usuário baixa pelo botão Baixar direto do Railway
 
       setPending([]);
       setTextEdits({});
       setBlocks(prev => prev.map(b => ({ ...b, _edited: false, _new_text: undefined })));
       refreshImage();
       await supabase.from("documents").update({ status: "completed" }).eq("id", id);
-      sb("✅ Salvo com sucesso!");
+      sb("✅ Salvo! Clique em Baixar para obter o PDF editado.");
     } catch (e: any) {
       sb(`❌ Erro ao salvar: ${e.message}`);
     } finally {
