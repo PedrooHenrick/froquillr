@@ -67,7 +67,7 @@ const Editor = () => {
   const [textEdits, setTextEdits]   = useState<any>({});
   const [imgTimestamp, setImgTimestamp] = useState(Date.now());
 
-  const hasPending = pending.length > 0 || Object.keys(textEdits).length > 0;
+  const hasPending = Object.keys(textEdits).length > 0;
   const editCount  = Object.keys(textEdits).length;
   const refreshImage = () => setImgTimestamp(Date.now());
   const sb = (msg: string) => setStatus(msg);
@@ -79,7 +79,6 @@ const Editor = () => {
     setError("");
 
     try {
-      // Busca info do documento no Supabase
       const { data: doc, error: docErr } = await supabase
         .from("documents")
         .select("*")
@@ -88,21 +87,20 @@ const Editor = () => {
         .single();
 
       if (docErr || !doc) { setError("Documento não encontrado."); return; }
-
       setDocInfo(doc);
 
-      // Tenta usar sessão salva no sessionStorage
+      // Usa sessão salva se existir
       const storedSession = sessionStorage.getItem(`session_${id}`);
       if (storedSession) {
         setSession(JSON.parse(storedSession));
         setLoading(false);
         await supabase.from("documents").update({ status: "editing" }).eq("id", id);
-        return; // Usa a sessão existente — Railway vai retornar 404 se não existir mais
+        return;
       }
 
       // Primeira vez — baixa do Supabase e envia pro Railway
       sb("Carregando documento...");
-      const pdfFile   = await downloadFromSupabase(doc.file_path, doc.name);
+      const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
       const sessionData = await uploadToRailway(pdfFile, doc.name);
       sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
 
@@ -116,6 +114,44 @@ const Editor = () => {
   }, [id, user]);
 
   useEffect(() => { initEditor(); }, [initEditor]);
+
+  // ── Quando volta para a aba — NÃO recarrega, só verifica sessão ────────
+  useEffect(() => {
+    const handleVisibility = async () => {
+      // Ignora quando a aba fica oculta ou quando ainda está carregando
+      if (document.visibilityState !== "visible") return;
+      const storedSession = sessionStorage.getItem(`session_${id}`);
+      if (!storedSession || !id) return;
+
+      const parsed = JSON.parse(storedSession);
+      try {
+        // Verifica silenciosamente se sessão ainda existe
+        const res = await fetch(`${API_BASE}/session-check/${parsed.session_id}`);
+        if (!res.ok) {
+          // Sessão expirou — reconecta silenciosamente sem mostrar loading
+          const stored = sessionStorage.getItem(`doc_${id}`);
+          if (!stored) return;
+          const doc = JSON.parse(stored);
+          const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
+          const sessionData = await uploadToRailway(pdfFile, doc.name);
+          sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
+          setSession(sessionData);
+          setBlocks([]); // limpa blocos pois são da sessão antiga
+          refreshImage();
+        }
+      } catch { /* ignora erros silenciosos */ }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [id]);
+
+  // Salva info do doc no sessionStorage para reconexão silenciosa
+  useEffect(() => {
+    if (docInfo && id) {
+      sessionStorage.setItem(`doc_${id}`, JSON.stringify(docInfo));
+    }
+  }, [docInfo, id]);
 
   // ── Extrair textos ─────────────────────────────────────────────────────
   const handleExtract = async () => {
@@ -177,53 +213,63 @@ const Editor = () => {
     if (!session) return;
     if (mode === "erase") {
       if (!window.confirm("Apagar o conteúdo desta área?")) return;
-      setPending(prev => [...prev, { type: "erase", page, rect }]);
-      sb("Área marcada · Aperte Salvar");
+      sb("Apagando...");
+      try {
+        await eraseArea(session.session_id, page, rect);
+        if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
+        refreshImage();
+        sb("Área apagada");
+      } catch (e: any) { sb(`❌ Erro ao apagar: ${e.message}`); }
     } else if (mode === "signature") {
       const input = document.createElement("input");
       input.type = "file"; input.accept = "image/*";
-      input.onchange = (e: any) => {
+      input.onchange = async (e: any) => {
         const file = e.target.files[0];
-        if (file) { setPending(prev => [...prev, { type: "signature", page, rect, file }]); sb("Assinatura marcada · Aperte Salvar"); }
+        if (!file) return;
+        sb("Adicionando assinatura...");
+        try {
+          await addSignature(session.session_id, page, rect, file);
+          if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
+          refreshImage();
+          sb("✅ Assinatura adicionada");
+        } catch (e: any) { sb(`❌ Erro: ${e.message}`); }
       };
       input.click();
     }
   };
 
-  const handlePaste = (file: File) => {
+  const handlePaste = async (file: File) => {
+    if (!session) return;
     const rect = { x_pct: 25, y_pct: 25, w_pct: 50, h_pct: 20 };
-    setPending(prev => [...prev, { type: "signature", page, rect, file }]);
-    sb("Imagem colada · Aperte Salvar");
+    sb("Adicionando imagem...");
+    try {
+      await addSignature(session.session_id, page, rect, file);
+      if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
+      refreshImage();
+      sb("✅ Imagem adicionada");
+    } catch (e: any) { sb(`❌ Erro: ${e.message}`); }
   };
 
-  // ── Salvar ─────────────────────────────────────────────────────────────
+  // ── Salvar (apenas edições de texto) ──────────────────────────────────
   const handleSave = async () => {
-    if (!session || !hasPending) return;
+    const hasTextEdits = Object.keys(textEdits).length > 0;
+    if (!session || !hasTextEdits) return;
     setSaving(true); sb("💾 Salvando...");
     try {
-      for (const p of pending.filter(p => p.type === "erase"))
-        await eraseArea(session.session_id, p.page, p.rect);
-      for (const p of pending.filter(p => p.type === "signature"))
-        await addSignature(session.session_id, p.page, p.rect, p.file);
-
       const edits = Object.values(textEdits).map(({ block, new_text, page }: any) => ({
         page, block_id: block.id, original_text: block.text, new_text,
         x0: block.x0, y0: block.y0, x1: block.x1, y1: block.y1,
         font_name: block.font_name, color_rgb: block.color_rgb, align: block.align,
       }));
-      if (edits.length > 0) await saveTextEdits(session.session_id, edits);
+      await saveTextEdits(session.session_id, edits);
 
-      // ── Salva PDF editado de volta no Supabase Storage ────────────────
-      if (docInfo?.file_path) {
-        sb("💾 Sincronizando com Supabase...");
-        await saveBackToSupabase(session.session_id, docInfo.file_path);
-      }
+      // Salva no Supabase imediatamente após aplicar
+      if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
 
-      setPending([]);
       setTextEdits({});
+      setPending([]);
       setBlocks(prev => prev.map(b => ({ ...b, _edited: false, _new_text: undefined })));
       refreshImage();
-
       await supabase.from("documents").update({ status: "completed" }).eq("id", id);
       sb("✅ Salvo com sucesso!");
     } catch (e: any) {
