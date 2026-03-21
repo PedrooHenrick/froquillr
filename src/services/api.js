@@ -19,7 +19,7 @@ api.interceptors.response.use(
 )
 
 export const renderPage = (sessionId, page, zoom = 1.5) =>
-  `${API_BASE}/render/${sessionId}/${page}?zoom=${zoom}&t=${Date.now()}`
+  `${API_BASE}/render/${sessionId}/${page}?zoom=${zoom}`
 
 export const extractText = (sessionId, page) =>
   api.post(`/extract/${sessionId}/${page}`).then(r => r.data.blocks)

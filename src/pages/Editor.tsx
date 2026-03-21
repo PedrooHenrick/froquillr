@@ -28,8 +28,7 @@ async function uploadToRailway(pdfBlob: Blob, filename: string) {
 
 async function downloadFromSupabase(filePath: string, filename: string) {
   const { data: urlData } = await supabase.storage
-    .from("pdfs")
-    .createSignedUrl(filePath, 600);
+    .from("pdfs").createSignedUrl(filePath, 600);
   if (!urlData?.signedUrl) throw new Error("Erro ao acessar o arquivo.");
   const blob = await fetch(urlData.signedUrl).then(r => r.blob());
   return new File([blob], filename, { type: "application/pdf" });
@@ -49,7 +48,6 @@ const Editor = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // ── Garante que initEditor roda só UMA vez — não recarrega ao trocar aba
   const initialized = useRef(false);
 
   const [loading, setLoading]       = useState(true);
@@ -65,33 +63,29 @@ const Editor = () => {
   const [hoveredBlock, setHoveredBlock] = useState(null);
   const [pending, setPending]       = useState<any[]>([]);
   const [textEdits, setTextEdits]   = useState<any>({});
-  const [imgTimestamp, setImgTimestamp] = useState(Date.now());
+  const [imgTimestamp, setImgTimestamp] = useState(() => Date.now());
 
   const hasPending = pending.length > 0 || Object.keys(textEdits).length > 0;
   const editCount  = Object.keys(textEdits).length;
   const refreshImage = () => setImgTimestamp(Date.now());
   const sb = (msg: string) => setStatus(msg);
 
-  // ── Init — roda só uma vez, ignora re-renders do auth ───────────────
+  // ── Init — roda só UMA vez ────────────────────────────────────────────
   useEffect(() => {
-    if (!id || !user) return;
+    if (!id || !user?.id) return;
     if (initialized.current) return;
     initialized.current = true;
 
     const init = async () => {
       try {
         const { data: doc, error: docErr } = await supabase
-          .from("documents")
-          .select("*")
-          .eq("id", id)
-          .eq("user_id", user.id)
-          .single();
+          .from("documents").select("*")
+          .eq("id", id).eq("user_id", user.id).single();
 
         if (docErr || !doc) { setError("Documento não encontrado."); return; }
         setDocInfo(doc);
         sessionStorage.setItem(`doc_${id}`, JSON.stringify(doc));
 
-        // Usa sessão salva se existir
         const stored = sessionStorage.getItem(`session_${id}`);
         if (stored) {
           setSession(JSON.parse(stored));
@@ -99,7 +93,6 @@ const Editor = () => {
           return;
         }
 
-        // Primeira vez — baixa do Supabase e envia pro Railway
         sb("Carregando documento...");
         const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
         const sessionData = await uploadToRailway(pdfFile, doc.name);
@@ -114,9 +107,9 @@ const Editor = () => {
     };
 
     init();
-  }, [id, user?.id]); // usa user.id — não recria quando o token atualiza
+  }, [id, user?.id]);
 
-  // ── Volta à aba — reconecta silenciosamente se Railway reiniciou ──────
+  // ── Volta à aba — reconecta se Railway reiniciou ──────────────────────
   useEffect(() => {
     if (!id) return;
     const handle = async () => {
@@ -196,7 +189,7 @@ const Editor = () => {
     }
   };
 
-  // ── Erase / Signature ────────────────────────────────────────────────
+  // ── Erase / Signature ─────────────────────────────────────────────────
   const handleSelection = async (rect: any) => {
     if (!session) return;
     if (mode === "erase") {
@@ -240,7 +233,6 @@ const Editor = () => {
       }));
       if (edits.length > 0) await saveTextEdits(session.session_id, edits);
 
-      // Salva PDF editado de volta no Supabase Storage
       if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
 
       setPending([]);
