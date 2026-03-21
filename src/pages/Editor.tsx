@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +52,8 @@ const Editor = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const initialized = useRef(false); // garante que initEditor roda só uma vez
+
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState("");
   const [session, setSession]       = useState<any>(null);
@@ -63,7 +65,6 @@ const Editor = () => {
   const [saving, setSaving]         = useState(false);
   const [status, setStatus]         = useState('Clique em "Extrair Textos" para começar');
   const [hoveredBlock, setHoveredBlock] = useState(null);
-  const [pending, setPending]       = useState<any[]>([]);
   const [textEdits, setTextEdits]   = useState<any>({});
   const [imgTimestamp, setImgTimestamp] = useState(Date.now());
 
@@ -72,86 +73,81 @@ const Editor = () => {
   const refreshImage = () => setImgTimestamp(Date.now());
   const sb = (msg: string) => setStatus(msg);
 
-  // ── Inicia o editor ────────────────────────────────────────────────────
-  const initEditor = useCallback(async () => {
-    if (!id || !user) return;
-    setLoading(true);
-    setError("");
-
-    try {
-      const { data: doc, error: docErr } = await supabase
-        .from("documents")
-        .select("*")
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .single();
-
-      if (docErr || !doc) { setError("Documento não encontrado."); return; }
-      setDocInfo(doc);
-
-      // Usa sessão salva se existir
-      const storedSession = sessionStorage.getItem(`session_${id}`);
-      if (storedSession) {
-        setSession(JSON.parse(storedSession));
-        setLoading(false);
-        await supabase.from("documents").update({ status: "editing" }).eq("id", id);
-        return;
-      }
-
-      // Primeira vez — baixa do Supabase e envia pro Railway
-      sb("Carregando documento...");
-      const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
-      const sessionData = await uploadToRailway(pdfFile, doc.name);
-      sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
-
-      await supabase.from("documents").update({ status: "editing" }).eq("id", id);
-      setSession(sessionData);
-    } catch (e: any) {
-      setError(e.message || "Erro ao carregar editor.");
-    } finally {
-      setLoading(false);
-    }
-  }, [id, user]);
-
-  useEffect(() => { initEditor(); }, [initEditor]);
-
-  // ── Quando volta para a aba — NÃO recarrega, só verifica sessão ────────
+  // ── Inicia o editor — roda só UMA vez ─────────────────────────────────
   useEffect(() => {
+    if (!id || !user) return;
+    if (initialized.current) return; // já inicializou, não recarrega
+    initialized.current = true;
+
+    const init = async () => {
+      try {
+        const { data: doc, error: docErr } = await supabase
+          .from("documents")
+          .select("*")
+          .eq("id", id)
+          .eq("user_id", user.id)
+          .single();
+
+        if (docErr || !doc) { setError("Documento não encontrado."); return; }
+        setDocInfo(doc);
+        sessionStorage.setItem(`doc_${id}`, JSON.stringify(doc));
+
+        // Usa sessão salva se existir — sem recarregar
+        const storedSession = sessionStorage.getItem(`session_${id}`);
+        if (storedSession) {
+          setSession(JSON.parse(storedSession));
+          setLoading(false);
+          return;
+        }
+
+        // Primeira vez — baixa do Supabase e envia pro Railway
+        sb("Carregando documento...");
+        const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
+        const sessionData = await uploadToRailway(pdfFile, doc.name);
+        sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
+        setSession(sessionData);
+        await supabase.from("documents").update({ status: "editing" }).eq("id", id);
+      } catch (e: any) {
+        setError(e.message || "Erro ao carregar editor.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, [id, user]); // deps necessárias mas o ref garante execução única
+
+  // ── Quando volta para a aba — reconecta silenciosamente se necessário ──
+  useEffect(() => {
+    if (!id) return;
+
     const handleVisibility = async () => {
-      // Ignora quando a aba fica oculta ou quando ainda está carregando
       if (document.visibilityState !== "visible") return;
+
       const storedSession = sessionStorage.getItem(`session_${id}`);
-      if (!storedSession || !id) return;
+      if (!storedSession) return;
 
       const parsed = JSON.parse(storedSession);
       try {
-        // Verifica silenciosamente se sessão ainda existe
         const res = await fetch(`${API_BASE}/session-check/${parsed.session_id}`);
         if (!res.ok) {
-          // Sessão expirou — reconecta silenciosamente sem mostrar loading
-          const stored = sessionStorage.getItem(`doc_${id}`);
-          if (!stored) return;
-          const doc = JSON.parse(stored);
+          // Railway reiniciou — reconecta sem mostrar loading ou recarregar página
+          const storedDoc = sessionStorage.getItem(`doc_${id}`);
+          if (!storedDoc) return;
+          const doc = JSON.parse(storedDoc);
           const pdfFile     = await downloadFromSupabase(doc.file_path, doc.name);
           const sessionData = await uploadToRailway(pdfFile, doc.name);
           sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
           setSession(sessionData);
-          setBlocks([]); // limpa blocos pois são da sessão antiga
+          setBlocks([]);
           refreshImage();
         }
-      } catch { /* ignora erros silenciosos */ }
+      } catch { /* silencioso */ }
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [id]);
-
-  // Salva info do doc no sessionStorage para reconexão silenciosa
-  useEffect(() => {
-    if (docInfo && id) {
-      sessionStorage.setItem(`doc_${id}`, JSON.stringify(docInfo));
-    }
-  }, [docInfo, id]);
 
   // ── Extrair textos ─────────────────────────────────────────────────────
   const handleExtract = async () => {
@@ -267,7 +263,6 @@ const Editor = () => {
       if (docInfo?.file_path) await saveBackToSupabase(session.session_id, docInfo.file_path);
 
       setTextEdits({});
-      setPending([]);
       setBlocks(prev => prev.map(b => ({ ...b, _edited: false, _new_text: undefined })));
       refreshImage();
       await supabase.from("documents").update({ status: "completed" }).eq("id", id);
