@@ -62,28 +62,18 @@ const Checkout = () => {
     setLoading(true);
 
     try {
-      const { data: sbSession } = await supabase.auth.getSession();
-      const token = sbSession.session?.access_token;
-
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
-
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      // ✅ Chama a Edge Function do Supabase (não o Railway)
+      const { data, error } = await supabase.functions.invoke("create-subscription", {
+        body: {
           user_id: user.id,
           email: profile?.email || user.email,
           plan: planKey,
-        }),
+        },
       });
 
-      if (!res.ok) throw new Error("Erro ao criar assinatura.");
+      if (error) throw new Error("Erro ao criar assinatura.");
 
-      const data = await res.json();
-
-      if (data.init_point) {
+      if (data?.init_point) {
         window.location.href = data.init_point;
       } else {
         throw new Error("Link de pagamento não gerado.");
