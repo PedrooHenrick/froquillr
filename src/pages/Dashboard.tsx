@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, Edit, Download, PenTool, LogOut, Crown, X, AlertTriangle, Zap, Scissors } from "lucide-react";
+import { Upload, FileText, Edit, Download, PenTool, LogOut, Crown, X, AlertTriangle, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 type Document = {
@@ -19,18 +19,15 @@ type Document = {
 const FREE_LIMIT = 3;
 
 const statusLabels: Record<string, { label: string; color: string }> = {
-  uploaded: { label: "Enviado", color: "bg-muted text-muted-foreground" },
-  editing: { label: "Editando", color: "bg-accent text-accent-foreground" },
-  completed: { label: "Concluido", color: "bg-primary/10 text-primary" },
-  signed: { label: "Assinado", color: "bg-primary/10 text-primary" },
+  uploaded:  { label: "Enviado",   color: "bg-muted text-muted-foreground" },
+  editing:   { label: "Editando",  color: "bg-accent text-accent-foreground" },
+  completed: { label: "Concluído", color: "bg-primary/10 text-primary" },
+  signed:    { label: "Assinado",  color: "bg-primary/10 text-primary" },
 };
 
-// ── Modal de upgrade com 3 planos ─────────────────────────────────────────
 const UpgradeModal = ({ onClose, resetsAt }: { onClose: () => void; resetsAt?: string }) => (
   <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
+    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
     onClick={onClose}
   >
@@ -50,26 +47,22 @@ const UpgradeModal = ({ onClose, resetsAt }: { onClose: () => void; resetsAt?: s
         <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
           <AlertTriangle className="w-8 h-8 text-amber-500" />
         </div>
-        <h2 className="font-display text-2xl font-bold text-foreground mb-2">
-          Limite semanal atingido
-        </h2>
+        <h2 className="font-display text-2xl font-bold text-foreground mb-2">Limite semanal atingido</h2>
         <p className="text-muted-foreground text-sm">
-          Voce usou suas <strong>{FREE_LIMIT} edicoes gratuitas</strong> desta semana.
+          Você usou suas <strong>{FREE_LIMIT} edições gratuitas</strong> desta semana.
           {resetsAt && <> Renova em <strong>{resetsAt}</strong>.</>}
         </p>
       </div>
 
-      {/* Cards dos planos */}
       <div className="grid grid-cols-2 gap-3 mb-6">
-        {/* Basico */}
         <Link to="/checkout?plan=basic" className="block">
           <div className="border border-blue-200 rounded-xl p-4 hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer">
             <Zap className="w-5 h-5 text-blue-500 mb-2" />
-            <p className="font-bold text-foreground text-sm">Basico</p>
+            <p className="font-bold text-foreground text-sm">Básico</p>
             <p className="text-2xl font-black text-foreground mt-1">R$5</p>
-            <p className="text-xs text-muted-foreground mt-1">5 edicoes avulsas</p>
+            <p className="text-xs text-muted-foreground mt-1">5 edições avulsas</p>
             <ul className="mt-3 space-y-1">
-              {["5 edicoes", "Sem expiracao", "Todas as ferramentas"].map(f => (
+              {["5 edições", "Sem expiração", "Todas as ferramentas"].map(f => (
                 <li key={f} className="text-xs text-gray-600 flex items-center gap-1">
                   <span className="text-blue-500">✓</span> {f}
                 </li>
@@ -78,7 +71,6 @@ const UpgradeModal = ({ onClose, resetsAt }: { onClose: () => void; resetsAt?: s
           </div>
         </Link>
 
-        {/* Pro */}
         <Link to="/checkout?plan=pro" className="block">
           <div className="border-2 border-orange-400 rounded-xl p-4 bg-orange-50/50 hover:bg-orange-50 transition-all cursor-pointer relative">
             <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -87,9 +79,9 @@ const UpgradeModal = ({ onClose, resetsAt }: { onClose: () => void; resetsAt?: s
             <Crown className="w-5 h-5 text-orange-500 mb-2" />
             <p className="font-bold text-foreground text-sm">Pro</p>
             <p className="text-2xl font-black text-foreground mt-1">R$12,80</p>
-            <p className="text-xs text-muted-foreground mt-1">por mes</p>
+            <p className="text-xs text-muted-foreground mt-1">por mês</p>
             <ul className="mt-3 space-y-1">
-              {["Ilimitado/mes", "Upload 100MB", "Sem marca dagua"].map(f => (
+              {["Ilimitado/mês", "Upload 100MB", "Sem marca d'água"].map(f => (
                 <li key={f} className="text-xs text-gray-600 flex items-center gap-1">
                   <span className="text-orange-500">✓</span> {f}
                 </li>
@@ -106,16 +98,14 @@ const UpgradeModal = ({ onClose, resetsAt }: { onClose: () => void; resetsAt?: s
   </motion.div>
 );
 
-
-// ── Dashboard principal ────────────────────────────────────────────────────
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, refreshProfile } = useAuth();
-  const [documents, setDocuments]   = useState<Document[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [uploading, setUploading]   = useState(false);
+  const [documents, setDocuments]     = useState<Document[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [uploading, setUploading]     = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const [resetsAt, setResetsAt]     = useState<string | undefined>();
+  const [resetsAt, setResetsAt]       = useState<string | undefined>();
 
   const isFree    = profile?.plan === "free" || !profile?.plan;
   const isBasic   = profile?.plan === "basic";
@@ -141,8 +131,9 @@ const Dashboard = () => {
     if (!user) return;
     const channel = supabase
       .channel("documents-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "documents", filter: `user_id=eq.${user.id}` },
-        () => { fetchDocuments(); })
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "documents", filter: `user_id=eq.${user.id}`,
+      }, () => { fetchDocuments(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchDocuments]);
@@ -152,11 +143,10 @@ const Dashboard = () => {
     if (!file || !user) return;
 
     if (file.type !== "application/pdf") {
-      toast.error("Apenas arquivos PDF sao aceitos.");
+      toast.error("Apenas arquivos PDF são aceitos.");
       return;
     }
 
-    // Verifica limite para free e basic
     if (isFree || isBasic) {
       const { data, error } = await supabase.rpc("check_and_increment_edit", { p_user_id: user.id });
       if (error) { toast.error("Erro ao verificar limite."); return; }
@@ -186,13 +176,12 @@ const Dashboard = () => {
     e.target.value = "";
   };
 
-  const handleEdit   = (docId: string) => navigate(`/editor/${docId}`);
+  const handleEdit    = (docId: string) => navigate(`/editor/${docId}`);
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
-  // Label do plano no header
   const planBadge = () => {
-    if (isPro)    return <span className="text-xs font-medium bg-orange-100 text-orange-600 px-2 py-1 rounded-md">Pro ∞</span>;
-    if (isBasic)  return <span className="text-xs font-medium bg-blue-100 text-blue-600 px-2 py-1 rounded-md">Basico · {credits} creditos</span>;
+    if (isPro)   return <span className="text-xs font-medium bg-orange-100 text-orange-600 px-2 py-1 rounded-md">Pro ∞</span>;
+    if (isBasic) return <span className="text-xs font-medium bg-blue-100 text-blue-600 px-2 py-1 rounded-md">Básico · {credits} créditos</span>;
     return (
       <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-md">
         Free · {editsLeft}/{FREE_LIMIT} esta semana
@@ -229,13 +218,13 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* Warning bar */}
+      {/* Warning bar — free */}
       {isFree && editsLeft !== null && editsLeft <= 1 && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="bg-amber-50 border-b border-amber-200 px-6 py-2">
           <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
             <p className="text-sm text-amber-800">
-              {editsLeft === 0 ? "Limite semanal atingido. Renova toda segunda-feira." : "Ultima edicao gratuita desta semana!"}
+              {editsLeft === 0 ? "Limite semanal atingido. Renova toda segunda-feira." : "Última edição gratuita desta semana!"}
             </p>
             <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white gap-1 shrink-0" onClick={() => setShowUpgrade(true)}>
               <Crown className="w-3 h-3" /> Ver planos
@@ -244,12 +233,13 @@ const Dashboard = () => {
         </motion.div>
       )}
 
+      {/* Warning bar — basic */}
       {isBasic && credits <= 1 && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="bg-blue-50 border-b border-blue-200 px-6 py-2">
           <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
             <p className="text-sm text-blue-800">
-              {credits === 0 ? "Seus creditos acabaram." : "Ultimo credito disponivel!"}
+              {credits === 0 ? "Seus créditos acabaram." : "Último crédito disponível!"}
             </p>
             <Link to="/checkout?plan=basic">
               <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white gap-1 shrink-0">
@@ -262,9 +252,6 @@ const Dashboard = () => {
 
       <main className="max-w-5xl mx-auto px-6 py-10">
 
-        {/* Before/After — aparece só quando não tem documentos */}
-        {!loading && documents.length === 0 && <BeforeAfterSection />}
-
         {/* Upload */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="border-2 border-dashed border-border rounded-2xl p-12 text-center mb-10 hover:border-primary/40 transition-colors">
@@ -272,7 +259,9 @@ const Dashboard = () => {
           <Upload className={`w-10 h-10 mx-auto mb-4 ${isBlocked ? "text-muted-foreground/30" : "text-muted-foreground"}`} />
           <h3 className="font-display text-xl font-bold text-foreground mb-2">Enviar PDF</h3>
           <p className="text-sm text-muted-foreground mb-6">
-            {isBlocked ? "Limite semanal atingido. Renova toda segunda-feira." : "Arraste seu arquivo aqui ou clique para selecionar"}
+            {isBlocked
+              ? "Limite semanal atingido. Renova toda segunda-feira."
+              : "Arraste seu arquivo aqui ou clique para selecionar"}
           </p>
           <label htmlFor="pdf-upload">
             {isBlocked ? (
@@ -286,9 +275,6 @@ const Dashboard = () => {
             )}
           </label>
         </motion.div>
-
-        {/* Before/After — aparece acima da lista quando já tem documentos */}
-        {!loading && documents.length > 0 && <BeforeAfterSection />}
 
         {/* Documents list */}
         <div className="space-y-4">
@@ -311,7 +297,8 @@ const Dashboard = () => {
               {documents.map((doc, i) => {
                 const status = statusLabels[doc.status] || statusLabels.uploaded;
                 return (
-                  <motion.div key={doc.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                  <motion.div key={doc.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
                     className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:shadow-sm transition-shadow">
                     <div className="p-2 rounded-lg bg-muted">
                       <FileText className="w-5 h-5 text-muted-foreground" />
