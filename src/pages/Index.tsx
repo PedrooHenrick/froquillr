@@ -2,6 +2,9 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, ArrowRight, FileText, Eraser, PenTool, Sparkles } from "lucide-react";
 
+import ft1 from "/ft1.png";
+import ft2 from "/ft2.png";
+
 const fade = (delay = 0) => ({
   initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0 },
@@ -161,46 +164,16 @@ export default function Index() {
             {/* Antes */}
             <div className="p-8">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Antes</p>
-              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-200 font-mono text-xs text-gray-700 space-y-2 select-none">
-                <p className="text-center font-bold text-sm text-gray-900 mb-3">CERTIFICADO</p>
-                <p>Certificamos que o Sr. <span className="bg-red-100 text-red-600 px-1 rounded">João da Silva</span>,</p>
-                <p>Portador do CPF: <span className="bg-red-100 text-red-600 px-1 rounded">123.456.789-00</span>,</p>
-                <p>Participou do curso de NR-18 realizado</p>
-                <p>no dia <span className="bg-red-100 text-red-600 px-1 rounded">01 de Janeiro de 2024</span>,</p>
-                <p>com carga horária de 6 Horas.</p>
-                <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between text-[10px] text-gray-500">
-                  <div>
-                    <p className="font-semibold text-gray-700">João da Silva</p>
-                    <p>CPF: 123.456.789-00</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-700">Instrutor</p>
-                    <p>Dom Guerra</p>
-                  </div>
-                </div>
+              <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+                <img src={ft1} alt="PDF antes da edição" className="w-full object-cover" />
               </div>
             </div>
 
             {/* Depois */}
             <div className="p-8">
               <p className="text-xs font-semibold text-orange-500 uppercase tracking-wide mb-4">Depois ✨</p>
-              <div className="bg-gray-50 rounded-2xl p-5 border border-orange-200 font-mono text-xs text-gray-700 space-y-2 select-none">
-                <p className="text-center font-bold text-sm text-gray-900 mb-3">CERTIFICADO</p>
-                <p>Certificamos que o Sr. <span className="bg-green-100 text-green-700 px-1 rounded">Pedro Henrique</span>,</p>
-                <p>Portador do CPF: <span className="bg-green-100 text-green-700 px-1 rounded">987.654.321-00</span>,</p>
-                <p>Participou do curso de NR-18 realizado</p>
-                <p>no dia <span className="bg-green-100 text-green-700 px-1 rounded">15 de Março de 2025</span>,</p>
-                <p>com carga horária de 6 Horas.</p>
-                <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between text-[10px] text-gray-500">
-                  <div>
-                    <p className="font-semibold text-gray-700">Pedro Henrique</p>
-                    <p>CPF: 987.654.321-00</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-700">Instrutor</p>
-                    <p>Dom Guerra</p>
-                  </div>
-                </div>
+              <div className="rounded-2xl overflow-hidden border border-orange-200 shadow-sm">
+                <img src={ft2} alt="PDF depois da edição" className="w-full object-cover" />
               </div>
               <div className="mt-3 flex items-center gap-1.5 text-xs text-green-600 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
