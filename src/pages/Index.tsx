@@ -23,6 +23,16 @@ const PLANS = [
     features: ["3 documentos por mês", "Edição básica de texto", "Download em PDF"],
     cta: "Começar grátis",
     highlight: false,
+    link: "/auth",
+  },
+  {
+    name: "Pro Starter",
+    price: "R$ 5",
+    period: "/ 5 PDFs",
+    features: ["5 documentos por compra", "Todas as ferramentas", "Assinatura digital", "Sem expiração"],
+    cta: "Comprar agora",
+    highlight: false,
+    link: "/checkout?plan=starter",
   },
   {
     name: "Pro",
@@ -31,6 +41,7 @@ const PLANS = [
     features: ["Documentos ilimitados", "Todas as ferramentas", "Assinatura digital", "Suporte prioritário"],
     cta: "Assinar Pro",
     highlight: true,
+    link: "/checkout?plan=pro",
   },
 ];
 
