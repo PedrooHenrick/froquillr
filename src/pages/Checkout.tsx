@@ -65,7 +65,8 @@ const Checkout = () => {
       const { data: sbSession } = await supabase.auth.getSession();
       const token = sbSession.session?.access_token;
 
-      const res = await fetch("/api/create-subscription", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
+
         method: "POST",
         headers: {
           "Content-Type": "application/json",
