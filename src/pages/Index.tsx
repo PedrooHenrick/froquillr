@@ -20,32 +20,31 @@ const PLANS = [
     name: "Grátis",
     price: "R$ 0",
     period: "para sempre",
-    features: ["3 documentos por mês", "Edição básica de texto", "Download em PDF"],
+    features: ["3 documentos por semana", "Edição básica de texto", "Download em PDF"],
     cta: "Começar grátis",
     highlight: false,
     link: "/auth",
   },
   {
-    name: "Pro Starter",
+    name: "Básico",
     price: "R$ 5",
     period: "/ 5 PDFs",
     features: ["5 documentos por compra", "Todas as ferramentas", "Assinatura digital", "Sem expiração"],
     cta: "Comprar agora",
     highlight: false,
-    link: "/checkout?plan=starter",
+    link: "/checkout?plan=basic",
   },
   {
     name: "Pro",
-    price: "R$ 29",
+    price: "R$ 12,80",
     period: "/mês",
-    features: ["Documentos ilimitados", "Todas as ferramentas", "Assinatura digital", "Suporte prioritário"],
+    features: ["Documentos ilimitados", "Todas as ferramentas", "Assinatura digital", "Suporte prioritário", "Upload até 100MB"],
     cta: "Assinar Pro",
     highlight: true,
     link: "/checkout?plan=pro",
   },
 ];
 
-// Logo SVG inline fiel à imagem
 function QuillrLogo({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -56,18 +55,15 @@ function QuillrLogo({ size = 32 }: { size?: number }) {
           <stop offset="100%" stopColor="#ea580c"/>
         </linearGradient>
       </defs>
-      {/* Pena */}
-      <path d="M62 8 C72 15, 75 30, 68 45 C62 58, 48 68, 35 78 C40 60, 45 42, 42 28 C50 35, 55 50, 48 65" 
+      <path d="M62 8 C72 15, 75 30, 68 45 C62 58, 48 68, 35 78 C40 60, 45 42, 42 28 C50 35, 55 50, 48 65"
         fill="url(#feather-grad)" stroke="none"/>
-      <path d="M35 78 C38 70, 42 58, 42 28 C38 35, 35 52, 32 72 Z" 
+      <path d="M35 78 C38 70, 42 58, 42 28 C38 35, 35 52, 32 72 Z"
         fill="#ea580c" opacity="0.4"/>
-      {/* Ponta da pena */}
       <path d="M35 78 L30 88 L38 82 Z" fill="#ea580c"/>
-      {/* Tinteiro */}
       <ellipse cx="34" cy="90" rx="12" ry="5" fill="#1c1c1c"/>
       <ellipse cx="34" cy="88" rx="9" ry="3.5" fill="#333"/>
     </svg>
-  )
+  );
 }
 
 export default function Index() {
@@ -136,8 +132,83 @@ export default function Index() {
         </motion.div>
 
         <motion.p {...fade(0.28)} className="mt-5 text-xs text-gray-400">
-          Sem cartão de crédito · 3 documentos gratuitos por mês
+          Sem cartão de crédito · 3 documentos gratuitos por semana
         </motion.p>
+      </section>
+
+      {/* ── Before / After ──────────────────────────────────────────────── */}
+      <section className="max-w-5xl mx-auto px-6 pb-24">
+        <div className="text-center mb-10">
+          <motion.h2
+            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }} transition={{ duration: 0.45 }}
+            className="sora text-3xl font-bold text-gray-900">
+            Veja o que você pode fazer
+          </motion.h2>
+          <p className="mt-2 text-gray-400 text-sm">Edite nomes, datas, assinaturas e muito mais</p>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.5 }}
+          className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm"
+        >
+          <div className="px-6 py-3 border-b border-gray-100 flex items-center justify-end">
+            <span className="text-xs bg-orange-100 text-orange-600 font-semibold px-2 py-1 rounded-md">Antes & Depois</span>
+          </div>
+
+          <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+            {/* Antes */}
+            <div className="p-8">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Antes</p>
+              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-200 font-mono text-xs text-gray-700 space-y-2 select-none">
+                <p className="text-center font-bold text-sm text-gray-900 mb-3">CERTIFICADO</p>
+                <p>Certificamos que o Sr. <span className="bg-red-100 text-red-600 px-1 rounded">João da Silva</span>,</p>
+                <p>Portador do CPF: <span className="bg-red-100 text-red-600 px-1 rounded">123.456.789-00</span>,</p>
+                <p>Participou do curso de NR-18 realizado</p>
+                <p>no dia <span className="bg-red-100 text-red-600 px-1 rounded">01 de Janeiro de 2024</span>,</p>
+                <p>com carga horária de 6 Horas.</p>
+                <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between text-[10px] text-gray-500">
+                  <div>
+                    <p className="font-semibold text-gray-700">João da Silva</p>
+                    <p>CPF: 123.456.789-00</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-700">Instrutor</p>
+                    <p>Dom Guerra</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Depois */}
+            <div className="p-8">
+              <p className="text-xs font-semibold text-orange-500 uppercase tracking-wide mb-4">Depois ✨</p>
+              <div className="bg-gray-50 rounded-2xl p-5 border border-orange-200 font-mono text-xs text-gray-700 space-y-2 select-none">
+                <p className="text-center font-bold text-sm text-gray-900 mb-3">CERTIFICADO</p>
+                <p>Certificamos que o Sr. <span className="bg-green-100 text-green-700 px-1 rounded">Pedro Henrique</span>,</p>
+                <p>Portador do CPF: <span className="bg-green-100 text-green-700 px-1 rounded">987.654.321-00</span>,</p>
+                <p>Participou do curso de NR-18 realizado</p>
+                <p>no dia <span className="bg-green-100 text-green-700 px-1 rounded">15 de Março de 2025</span>,</p>
+                <p>com carga horária de 6 Horas.</p>
+                <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between text-[10px] text-gray-500">
+                  <div>
+                    <p className="font-semibold text-gray-700">Pedro Henrique</p>
+                    <p>CPF: 987.654.321-00</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-700">Instrutor</p>
+                    <p>Dom Guerra</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-1.5 text-xs text-green-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Editado em segundos com Quillr
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
       {/* ── Features ────────────────────────────────────────────────────── */}
@@ -177,9 +248,9 @@ export default function Index() {
           </div>
           <div className="flex flex-col gap-6 md:max-w-xs w-full">
             {[
-              { n: "01", t: "Faça upload do PDF",         d: "Arraste ou selecione seu arquivo." },
-              { n: "02", t: "Edite o que precisar",       d: "Textos, assinaturas ou apagar áreas." },
-              { n: "03", t: "Baixe o resultado",          d: "PDF editado pronto em segundos." },
+              { n: "01", t: "Faça upload do PDF",   d: "Arraste ou selecione seu arquivo." },
+              { n: "02", t: "Edite o que precisar", d: "Textos, assinaturas ou apagar áreas." },
+              { n: "03", t: "Baixe o resultado",    d: "PDF editado pronto em segundos." },
             ].map((s) => (
               <div key={s.n} className="flex items-start gap-4">
                 <span className="sora text-xs font-bold text-orange-500 mt-0.5 w-6 flex-shrink-0">{s.n}</span>
@@ -193,7 +264,7 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ── Pricing ─────────────────────────────────────────────────────── */}
+      {/* ── Pricing — 3 planos lado a lado ──────────────────────────────── */}
       <section id="precos" className="max-w-5xl mx-auto px-6 pb-28">
         <div className="text-center mb-12">
           <motion.h2
@@ -205,21 +276,21 @@ export default function Index() {
           <p className="mt-3 text-gray-400 text-sm">Sem taxas escondidas. Cancele quando quiser.</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-4">
           {PLANS.map((plan, i) => (
             <motion.div key={plan.name}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.08, duration: 0.4 }}
-              className={`relative p-8 rounded-2xl border transition-all ${
+              className={`relative p-8 rounded-2xl border transition-all flex flex-col ${
                 plan.highlight
-                  ? "border-orange-200 bg-orange-50"
+                  ? "border-orange-300 bg-orange-50 shadow-md shadow-orange-100"
                   : "border-gray-100 bg-gray-50/50"
               }`}
             >
               {plan.highlight && (
-                <span className="absolute -top-3 left-6 bg-orange-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
                   Mais popular
                 </span>
               )}
@@ -228,7 +299,7 @@ export default function Index() {
                 <span className="sora text-4xl font-bold text-gray-900">{plan.price}</span>
                 <span className="text-gray-400 text-sm">{plan.period}</span>
               </div>
-              <ul className="mt-6 space-y-2.5">
+              <ul className="mt-6 space-y-2.5 flex-1">
                 {plan.features.map(f => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-gray-600">
                     <Check size={13} className="text-orange-500 flex-shrink-0" />
@@ -236,7 +307,7 @@ export default function Index() {
                   </li>
                 ))}
               </ul>
-              <Link to="/auth"
+              <Link to={plan.link}
                 className={`mt-8 block text-center text-sm font-semibold py-3 rounded-full transition-all ${
                   plan.highlight
                     ? "bg-orange-500 text-white hover:bg-orange-600 shadow-sm"
