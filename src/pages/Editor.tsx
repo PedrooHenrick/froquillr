@@ -46,7 +46,6 @@ async function syncEditedPdfToSupabase(sessionId: string, filePath: string) {
   } catch (e) { console.error("[sync] falha:", e); return false; }
 }
 
-// Estilo padrão do texto no modo lápis
 const DEFAULT_TEXT_STYLE = {
   fontName: "arial",
   fontSize: 16,
@@ -62,45 +61,44 @@ const Editor = () => {
 
   const initialized = useRef(false);
 
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState("");
-  const [session, setSession]         = useState<any>(null);
-  const [page, setPage]               = useState(0);
-  const [mode, setMode]               = useState("edit");
-  const [blocks, setBlocks]           = useState<any[]>([]);
-  const [extracting, setExtracting]   = useState(false);
-  const [saving, setSaving]           = useState(false);
-  const [status, setStatus]           = useState('Clique em "Extrair Textos" para começar');
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState("");
+  const [session, setSession]           = useState<any>(null);
+  const [page, setPage]                 = useState(0);
+  const [mode, setMode]                 = useState("edit");
+  const [blocks, setBlocks]             = useState<any[]>([]);
+  const [extracting, setExtracting]     = useState(false);
+  const [saving, setSaving]             = useState(false);
+  const [status, setStatus]             = useState('Clique em "Extrair Textos" para começar');
   const [hoveredBlock, setHoveredBlock] = useState(null);
-  const [pending, setPending]         = useState<any[]>([]);
-  const [textEdits, setTextEdits]     = useState<any>({});
+  const [pending, setPending]           = useState<any[]>([]);
+  const [textEdits, setTextEdits]       = useState<any>({});
   const [imgTimestamp, setImgTimestamp] = useState(() => Date.now());
 
-  // ── Estado do modo lápis ──────────────────────────────────────────────
-  const [textStyle, setTextStyle]     = useState(DEFAULT_TEXT_STYLE);
-  const [pendingTextRect, setPendingTextRect] = useState<any>(null); // área selecionada aguardando texto
-  const [textInput, setTextInput]     = useState("");
+  // Elementos de texto arrastáveis (modo lápis — ainda não gravados no PDF)
+  const [textElements, setTextElements]       = useState<any[]>([]);
+  const [textStyle, setTextStyle]             = useState(DEFAULT_TEXT_STYLE);
+  const [pendingTextRect, setPendingTextRect] = useState<any>(null);
+  const [textInput, setTextInput]             = useState("");
   const [showTextToolbar, setShowTextToolbar] = useState(false);
 
-  // ── Histórico para Ctrl+Z ─────────────────────────────────────────────
-  const [history, setHistory]         = useState<string[]>([]); // lista de session_ids de snapshots
+  // Histórico Ctrl+Z
+  const [history, setHistory] = useState<string[]>([]);
   const pushHistory = useCallback(async (sessionId: string) => {
     try {
       const res = await fetch(`${API_BASE}/snapshot/${sessionId}`, { method: "POST" });
       if (!res.ok) return;
       const data = await res.json();
-      if (data.snapshot_id) {
-        setHistory(prev => [...prev.slice(-19), data.snapshot_id]); // máx 20
-      }
+      if (data.snapshot_id) setHistory(prev => [...prev.slice(-19), data.snapshot_id]);
     } catch { /* silencioso */ }
   }, []);
 
-  const hasPending = pending.length > 0 || Object.keys(textEdits).length > 0;
+  const hasPending = pending.length > 0 || Object.keys(textEdits).length > 0 || textElements.length > 0;
   const editCount  = Object.keys(textEdits).length;
   const refreshImage = () => setImgTimestamp(Date.now());
   const sb = (msg: string) => setStatus(msg);
 
-  // ── Keep-alive ────────────────────────────────────────────────────────
+  // Keep-alive
   useEffect(() => {
     const ping = () => fetch(`${API_BASE}/`).catch(() => {});
     ping();
@@ -108,32 +106,32 @@ const Editor = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Ctrl+Z ────────────────────────────────────────────────────────────
+  // Ctrl+Z
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
+        if (textElements.length > 0) {
+          setTextElements(prev => prev.slice(0, -1));
+          sb("↩ Elemento removido");
+          return;
+        }
         if (history.length === 0 || !session) return;
         const snapshotId = history[history.length - 1];
         setHistory(prev => prev.slice(0, -1));
         try {
           sb("↩ Desfazendo...");
           const res = await fetch(`${API_BASE}/undo/${session.session_id}/${snapshotId}`, { method: "POST" });
-          if (res.ok) {
-            refreshImage();
-            setBlocks([]);
-            sb("↩ Ação desfeita");
-          } else {
-            sb("❌ Não foi possível desfazer");
-          }
+          if (res.ok) { refreshImage(); setBlocks([]); sb("↩ Ação desfeita"); }
+          else sb("❌ Não foi possível desfazer");
         } catch { sb("❌ Erro ao desfazer"); }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [history, session]);
+  }, [history, session, textElements]);
 
-  // ── Init ──────────────────────────────────────────────────────────────
+  // Init
   useEffect(() => {
     if (!id || !user?.id) return;
     if (initialized.current) return;
@@ -144,20 +142,12 @@ const Editor = () => {
         const { data: doc, error: docErr } = await supabase
           .from("documents").select("*")
           .eq("id", id).eq("user_id", user.id).single();
-
         if (docErr || !doc) { setError("Documento não encontrado."); return; }
 
-        sessionStorage.setItem(`doc_${id}`, JSON.stringify({
-          file_path: doc.file_path,
-          name: doc.name,
-        }));
+        sessionStorage.setItem(`doc_${id}`, JSON.stringify({ file_path: doc.file_path, name: doc.name }));
 
         const stored = sessionStorage.getItem(`session_${id}`);
-        if (stored) {
-          setSession(JSON.parse(stored));
-          setLoading(false);
-          return;
-        }
+        if (stored) { setSession(JSON.parse(stored)); setLoading(false); return; }
 
         sb("Carregando documento...");
         const sessionData = await uploadToRailway(doc.file_path, doc.name);
@@ -170,11 +160,10 @@ const Editor = () => {
         setLoading(false);
       }
     };
-
     init();
   }, [id, user?.id]);
 
-  // ── Visibilidade ──────────────────────────────────────────────────────
+  // Visibilidade
   useEffect(() => {
     if (!id) return;
     const handle = async () => {
@@ -198,17 +187,12 @@ const Editor = () => {
           const savedEdits = sessionStorage.getItem(`edits_${id}`);
           if (savedEdits) {
             const { pending: p, textEdits: t, page: pg } = JSON.parse(savedEdits);
-            setPending(p || []);
-            setTextEdits(t || {});
-            setPage(pg || 0);
-            if ((p?.length > 0) || Object.keys(t || {}).length > 0) {
+            setPending(p || []); setTextEdits(t || {}); setPage(pg || 0);
+            if ((p?.length > 0) || Object.keys(t || {}).length > 0)
               sb("⚠️ Edições pendentes restauradas · Aperte Salvar para aplicar");
-            } else {
-              sb('Clique em "Extrair Textos" para começar');
-            }
+            else sb('Clique em "Extrair Textos" para começar');
           }
-          setBlocks([]);
-          refreshImage();
+          setBlocks([]); refreshImage();
         }
       } catch { /* silencioso */ }
     };
@@ -216,7 +200,7 @@ const Editor = () => {
     return () => document.removeEventListener("visibilitychange", handle);
   }, [id, pending, textEdits, page]);
 
-  // ── Extrair ───────────────────────────────────────────────────────────
+  // Extrair
   const handleExtract = async () => {
     if (!session) return;
     setExtracting(true); sb("Extraindo textos...");
@@ -228,7 +212,7 @@ const Editor = () => {
     finally { setExtracting(false); }
   };
 
-  // ── Edição de texto (modo extrair) ────────────────────────────────────
+  // Edição modo extrair
   const handleBlockClick = (block: any) => {
     if (mode !== "edit") return;
     if (block._confirmedText !== undefined) {
@@ -263,29 +247,22 @@ const Editor = () => {
     }
   };
 
-  // ── Seleção de área (erase / signature / lápis) ───────────────────────
+  // Seleção de área
   const handleSelection = async (rect: any) => {
     if (!session) return;
-
     if (mode === "erase") {
       if (!window.confirm("Apagar o conteúdo desta área?")) return;
       setPending(prev => [...prev, { type: "erase", page, rect }]);
       sb("Área marcada · Aperte Salvar");
-
     } else if (mode === "signature") {
       const input = document.createElement("input");
       input.type = "file"; input.accept = "image/*";
       input.onchange = (e: any) => {
         const file = e.target.files[0];
-        if (file) {
-          setPending(prev => [...prev, { type: "signature", page, rect, file }]);
-          sb("Assinatura marcada · Aperte Salvar");
-        }
+        if (file) { setPending(prev => [...prev, { type: "signature", page, rect, file }]); sb("Assinatura marcada · Aperte Salvar"); }
       };
       input.click();
-
     } else if (mode === "pencil") {
-      // Modo lápis: abre toolbar de texto na área selecionada
       setPendingTextRect(rect);
       setTextInput("");
       setShowTextToolbar(true);
@@ -299,20 +276,25 @@ const Editor = () => {
     sb("Imagem colada · Aperte Salvar");
   };
 
-  // ── Confirmar texto do lápis ──────────────────────────────────────────
+  // Confirmar texto → vira elemento arrastável
   const handleConfirmText = () => {
     if (!textInput.trim() || !pendingTextRect) return;
-    setPending(prev => [...prev, {
-      type:      "add_text",
+    const newEl = {
+      id:           `txt_${Date.now()}`,
+      text:         textInput.trim(),
+      textStyle:    { ...textStyle },
       page,
-      rect:      pendingTextRect,
-      text:      textInput.trim(),
-      textStyle: { ...textStyle },
-    }]);
+      x_pct:        pendingTextRect.x_pct,
+      y_pct:        pendingTextRect.y_pct,
+      w_pct:        pendingTextRect.w_pct,
+      h_pct:        pendingTextRect.h_pct,
+      _justCreated: true,
+    };
+    setTextElements(prev => [...prev, newEl]);
     setShowTextToolbar(false);
     setPendingTextRect(null);
     setTextInput("");
-    sb("Texto marcado · Aperte Salvar");
+    sb("Texto adicionado · Arraste para posicionar · Duplo clique para editar · Salvar para gravar");
   };
 
   const handleCancelText = () => {
@@ -322,12 +304,20 @@ const Editor = () => {
     sb("Cancelado");
   };
 
-  // ── Salvar ────────────────────────────────────────────────────────────
+  // Atualizar / remover elemento arrastável
+  const handleUpdateTextElement = (elId: string, updates: any) => {
+    setTextElements(prev => prev.map(el => el.id === elId ? { ...el, ...updates } : el));
+  };
+
+  const handleRemoveTextElement = (elId: string) => {
+    setTextElements(prev => prev.filter(el => el.id !== elId));
+  };
+
+  // Salvar
   const handleSave = async () => {
     if (!session || !hasPending) return;
     setSaving(true); sb("💾 Salvando...");
     try {
-      // Tira snapshot antes de salvar (para Ctrl+Z)
       await pushHistory(session.session_id);
 
       for (const p of pending.filter(p => p.type === "erase"))
@@ -336,29 +326,29 @@ const Editor = () => {
       for (const p of pending.filter(p => p.type === "signature"))
         await addSignature(session.session_id, p.page, p.rect, p.file);
 
-      // Textos do lápis
-      for (const p of pending.filter(p => p.type === "add_text")) {
+      // Grava elementos de texto do lápis
+      for (const el of textElements) {
         await fetch(`${API_BASE}/add-text`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_id: session.session_id,
-            page:       p.page,
-            x_pct:      p.rect.x_pct,
-            y_pct:      p.rect.y_pct,
-            w_pct:      p.rect.w_pct,
-            h_pct:      p.rect.h_pct,
-            text:       p.text,
-            font_name:  p.textStyle.fontName,
-            font_size:  p.textStyle.fontSize,
-            bold:       p.textStyle.bold,
-            italic:     p.textStyle.italic,
-            color_hex:  p.textStyle.color,
+            page:       el.page,
+            x_pct:      el.x_pct,
+            y_pct:      el.y_pct,
+            w_pct:      el.w_pct,
+            h_pct:      el.h_pct,
+            text:       el.text,
+            font_name:  el.textStyle.fontName,
+            font_size:  el.textStyle.fontSize,
+            bold:       el.textStyle.bold,
+            italic:     el.textStyle.italic,
+            color_hex:  el.textStyle.color,
           }),
         });
       }
 
-      // Textos do modo extrair
+      // Textos extraídos editados
       const edits = Object.values(textEdits).map(({ block, new_text, page }: any) => ({
         page, block_id: block.id, original_text: block.text, new_text,
         x0: block.x0, y0: block.y0, x1: block.x1, y1: block.y1,
@@ -367,7 +357,7 @@ const Editor = () => {
       }));
       if (edits.length > 0) await saveTextEdits(session.session_id, edits);
 
-      // Sincroniza PDF editado pro Supabase
+      // Sincroniza pro Supabase
       const storedDoc = sessionStorage.getItem(`doc_${id}`);
       if (storedDoc) {
         const { file_path } = JSON.parse(storedDoc);
@@ -377,6 +367,7 @@ const Editor = () => {
 
       setPending([]);
       setTextEdits({});
+      setTextElements([]);
       setBlocks(prev => prev.map(b => ({ ...b, _edited: false, _new_text: undefined })));
       refreshImage();
       await supabase.from("documents").update({ status: "completed" }).eq("id", id);
@@ -394,7 +385,7 @@ const Editor = () => {
     sb("Página " + (n + 1));
   };
 
-  // ── Render ────────────────────────────────────────────────────────────
+  // Render
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
       <div className="w-10 h-10 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
@@ -405,13 +396,13 @@ const Editor = () => {
   if (error) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
       <p className="text-red-400">{error}</p>
-      <button onClick={() => navigate("/dashboard")} className="text-orange-400 underline text-sm">
-        Voltar ao painel
-      </button>
+      <button onClick={() => navigate("/dashboard")} className="text-orange-400 underline text-sm">Voltar ao painel</button>
     </div>
   );
 
   if (!session) return null;
+
+  const currentTextElements = textElements.filter(el => el.page === page);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
@@ -425,21 +416,19 @@ const Editor = () => {
         onDownload={() => window.open(downloadUrl(session.session_id))}
         filename={session.filename}
         downloadUrl={downloadUrl(session.session_id)}
-        canUndo={history.length > 0}
-        onUndo={() => {
-          const e = new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true });
-          window.dispatchEvent(e);
-        }}
+        canUndo={history.length > 0 || textElements.length > 0}
+        onUndo={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }))}
       />
 
       <div className="text-gray-400 text-xs px-3 py-1 border-b border-gray-200 flex items-center gap-2">
-        <button onClick={() => navigate("/dashboard")} className="text-orange-400 hover:text-orange-300 mr-2">
-          ← Painel
-        </button>
+        <button onClick={() => navigate("/dashboard")} className="text-orange-400 hover:text-orange-300 mr-2">← Painel</button>
         <span>{status}</span>
-        {mode === "erase"   && <span className="text-red-400 ml-2">Arraste sobre a área que deseja apagar</span>}
+        {mode === "erase"     && <span className="text-red-400 ml-2">Arraste sobre a área que deseja apagar</span>}
         {mode === "signature" && <span className="text-blue-400 ml-2">Arraste para posicionar · Ctrl+V para colar</span>}
-        {mode === "pencil"  && <span className="text-green-500 ml-2">Arraste para selecionar onde adicionar texto</span>}
+        {mode === "pencil"    && <span className="text-green-600 ml-2">Arraste para selecionar onde adicionar texto</span>}
+        {currentTextElements.length > 0 && (
+          <span className="text-orange-500 ml-auto">{currentTextElements.length} texto(s) flutuante(s) · Salvar para gravar</span>
+        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -453,9 +442,11 @@ const Editor = () => {
               onBlockHover={setHoveredBlock}
               onSelectionFinished={handleSelection}
               onPaste={handlePaste}
+              textElements={currentTextElements}
+              onUpdateTextElement={handleUpdateTextElement}
+              onRemoveTextElement={handleRemoveTextElement}
             />
 
-            {/* Toolbar flutuante do lápis */}
             {showTextToolbar && pendingTextRect && (
               <TextToolbar
                 rect={pendingTextRect}
@@ -469,12 +460,7 @@ const Editor = () => {
             )}
           </div>
         </div>
-        <TextPanel
-          blocks={blocks}
-          onEdit={handlePanelEdit}
-          onFocus={setHoveredBlock}
-          editCount={editCount}
-        />
+        <TextPanel blocks={blocks} onEdit={handlePanelEdit} onFocus={setHoveredBlock} editCount={editCount} />
       </div>
     </div>
   );
