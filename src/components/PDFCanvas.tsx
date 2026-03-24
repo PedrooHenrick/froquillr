@@ -97,6 +97,7 @@ function DraggableText({ item, containerRef, onUpdate, onRemove, onConfirm }) {
   return (
     <div
       ref={elRef}
+      data-text-element="true"
       style={{
         position:  'absolute',
         left:      `${item.x_pct}%`,
@@ -109,14 +110,13 @@ function DraggableText({ item, containerRef, onUpdate, onRemove, onConfirm }) {
       }}
       onMouseDown={onMouseDownDrag}
     >
-      {/* Borda */}
+      {/* Borda + fundo */}
       <div style={{
         position: 'absolute', inset: 0,
         border: editing ? '2px solid #f97316' : '1.5px dashed #f97316',
         borderRadius: 4,
-        backgroundColor: editing ? '#ffffff' : 'rgba(255,255,255,0.0)',
+        backgroundColor: editing ? '#ffffff' : 'transparent',
         pointerEvents: 'none',
-        zIndex: -1,
       }} />
 
       {/* Texto renderizado (quando não editando) */}
@@ -431,15 +431,14 @@ export default function PDFCanvas({
 
       {/* Elementos de texto arrastáveis (modo lápis) */}
       {(textElements || []).map(item => (
-        <div key={item.id} data-text-element="true">
-          <DraggableText
-            item={item}
-            containerRef={containerRef}
-            onUpdate={onUpdateTextElement}
-            onRemove={onRemoveTextElement}
-            onConfirm={() => {}}
-          />
-        </div>
+        <DraggableText
+          key={item.id}
+          item={item}
+          containerRef={containerRef}
+          onUpdate={onUpdateTextElement}
+          onRemove={onRemoveTextElement}
+          onConfirm={() => {}}
+        />
       ))}
 
       {/* Retângulo de seleção */}
