@@ -53,9 +53,12 @@ function DraggableText({ item, containerRef, onUpdate, onRemove, onConfirm }) {
     if (!dragging && !resizing) return
     const cont = containerRef.current
     if (!cont) return
-    const rect = cont.getBoundingClientRect()
 
     const onMove = (e) => {
+      // Recalcula o rect a cada movimento para precisão
+      const img = cont.querySelector('img')
+      const rect = img ? img.getBoundingClientRect() : cont.getBoundingClientRect()
+
       if (dragging && dragStart.current) {
         const dx = ((e.clientX - dragStart.current.mx) / rect.width)  * 100
         const dy = ((e.clientY - dragStart.current.my) / rect.height) * 100
@@ -83,6 +86,8 @@ function DraggableText({ item, containerRef, onUpdate, onRemove, onConfirm }) {
   const commitEdit = () => {
     onUpdate(item.id, { text: localText, textStyle: localStyle, _justCreated: false })
     setEditing(false)
+    dragStart.current = null   // limpa qualquer drag residual
+    resizeStart.current = null
   }
 
   const fontFamily = localStyle.fontName === 'times'
@@ -109,8 +114,9 @@ function DraggableText({ item, containerRef, onUpdate, onRemove, onConfirm }) {
         position: 'absolute', inset: 0,
         border: editing ? '2px solid #f97316' : '1.5px dashed #f97316',
         borderRadius: 4,
-        backgroundColor: editing ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.0)',
+        backgroundColor: editing ? '#ffffff' : 'rgba(255,255,255,0.0)',
         pointerEvents: 'none',
+        zIndex: -1,
       }} />
 
       {/* Texto renderizado (quando não editando) */}
