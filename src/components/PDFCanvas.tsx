@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { GripVertical, X, Check, Bold, Italic } from 'lucide-react'
 
 const FONTS = [
   { value: "arial",   label: "Arial" },
@@ -16,255 +15,279 @@ const COLORS = [
 ]
 
 // ── Elemento de texto flutuante ───────────────────────────────────────────
-function DraggableText({ item, containerRef, onUpdate, onRemove, onConfirm }) {
-  const elRef      = useRef(null)
-  const [editing, setEditing]   = useState(item._justCreated || false)
-  const [localText, setLocalText] = useState(item.text)
-  const [localStyle, setLocalStyle] = useState(item.textStyle)
-  const [dragging, setDragging] = useState(false)
-  const [resizing, setResizing] = useState(false)
-  const dragStart  = useRef(null)
-  const resizeStart = useRef(null)
+function DraggableText({ item, imgRef, onUpdate, onRemove }) {
+  const [editing, setEditing]       = useState(item._justCreated || false)
+  const [localText, setLocalText]   = useState(item.text)
+  const [localStyle, setLocalStyle] = useState({ ...item.textStyle })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef(null)
 
-  // Arrastar
-  const onMouseDownDrag = (e) => {
-    if (e.target.closest('.no-drag')) return
-    e.preventDefault()
-    e.stopPropagation()  // ← impede que o PDFCanvas inicie seleção de área
-    setDragging(true)
-    dragStart.current = {
-      mx: e.clientX, my: e.clientY,
-      ox: item.x_pct, oy: item.y_pct,
-    }
-  }
+  const getImgRect = () => imgRef.current?.getBoundingClientRect() ?? null
 
-  // Redimensionar (canto inferior direito)
-  const onMouseDownResize = (e) => {
+  // ── Arrastar ──────────────────────────────────────────────────────────
+  const handleMouseDownDrag = (e) => {
+    if (editing) return
+    if (e.target.closest('[data-nodrag]')) return
     e.preventDefault()
-    e.stopPropagation()  // ← já tinha, mantido
-    setResizing(true)
-    resizeStart.current = {
-      mx: e.clientX, my: e.clientY,
-      ow: item.w_pct, oh: item.h_pct,
+    e.stopPropagation()
+
+    const rect = getImgRect()
+    if (!rect) return
+
+    dragRef.current = {
+      startMx: e.clientX,
+      startMy: e.clientY,
+      startX:  item.x_pct,
+      startY:  item.y_pct,
+      rectW:   rect.width,
+      rectH:   rect.height,
     }
+    setIsDragging(true)
   }
 
   useEffect(() => {
-    if (!dragging && !resizing) return
-    const cont = containerRef.current
-    if (!cont) return
+    if (!isDragging) return
 
     const onMove = (e) => {
-      // Recalcula o rect a cada movimento para precisão
-      const img = cont.querySelector('img')
-      const rect = img ? img.getBoundingClientRect() : cont.getBoundingClientRect()
-
-      if (dragging && dragStart.current) {
-        const dx = ((e.clientX - dragStart.current.mx) / rect.width)  * 100
-        const dy = ((e.clientY - dragStart.current.my) / rect.height) * 100
-        onUpdate(item.id, {
-          x_pct: Math.max(0, Math.min(95, dragStart.current.ox + dx)),
-          y_pct: Math.max(0, Math.min(95, dragStart.current.oy + dy)),
-        })
-      }
-      if (resizing && resizeStart.current) {
-        const dx = ((e.clientX - resizeStart.current.mx) / rect.width)  * 100
-        const dy = ((e.clientY - resizeStart.current.my) / rect.height) * 100
-        onUpdate(item.id, {
-          w_pct: Math.max(5,  resizeStart.current.ow + dx),
-          h_pct: Math.max(2,  resizeStart.current.oh + dy),
-        })
-      }
+      const d = dragRef.current
+      if (!d) return
+      const dx = ((e.clientX - d.startMx) / d.rectW) * 100
+      const dy = ((e.clientY - d.startMy) / d.rectH) * 100
+      onUpdate(item.id, {
+        x_pct: Math.max(0, Math.min(96, d.startX + dx)),
+        y_pct: Math.max(0, Math.min(96, d.startY + dy)),
+      })
     }
-    const onUp = () => { setDragging(false); setResizing(false) }
+
+    const onUp = () => {
+      dragRef.current = null
+      setIsDragging(false)
+    }
 
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [dragging, resizing])
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [isDragging, item.id, onUpdate])
 
+  // ── Confirmar edição ──────────────────────────────────────────────────
   const commitEdit = () => {
-    onUpdate(item.id, { text: localText, textStyle: localStyle, _justCreated: false })
+    onUpdate(item.id, { text: localText, textStyle: { ...localStyle }, _justCreated: false })
     setEditing(false)
-    dragStart.current = null   // limpa qualquer drag residual
-    resizeStart.current = null
   }
 
-  const fontFamily = localStyle.fontName === 'times'
-    ? 'serif' : localStyle.fontName === 'courier'
-    ? 'monospace' : 'sans-serif'
+  const cancelEdit = () => {
+    if (item._justCreated) { onRemove(item.id); return }
+    setLocalText(item.text)
+    setLocalStyle({ ...item.textStyle })
+    setEditing(false)
+  }
+
+  const fontFamily =
+    localStyle.fontName === 'times'   ? 'Georgia, serif' :
+    localStyle.fontName === 'courier' ? 'Courier New, monospace' :
+    localStyle.fontName === 'verdana' ? 'Verdana, sans-serif' :
+    'Arial, sans-serif'
+
+  const displayFontFamily =
+    item.textStyle.fontName === 'times'   ? 'Georgia, serif' :
+    item.textStyle.fontName === 'courier' ? 'Courier New, monospace' :
+    item.textStyle.fontName === 'verdana' ? 'Verdana, sans-serif' :
+    'Arial, sans-serif'
 
   return (
     <div
-      ref={elRef}
       data-text-element="true"
       style={{
-        position:  'absolute',
-        left:      `${item.x_pct}%`,
-        top:       `${item.y_pct}%`,
-        width:     `${item.w_pct}%`,
-        minHeight: `${item.h_pct}%`,
-        cursor:    dragging ? 'grabbing' : 'grab',
+        position:   'absolute',
+        left:       `${item.x_pct}%`,
+        top:        `${item.y_pct}%`,
+        width:      editing ? `${Math.max(item.w_pct, 25)}%` : 'auto',
+        minWidth:   '60px',
+        maxWidth:   '80%',
+        cursor:     isDragging ? 'grabbing' : editing ? 'default' : 'grab',
         userSelect: 'none',
-        zIndex: editing ? 60 : 40,
+        zIndex:     editing ? 100 : 50,
       }}
-      onMouseDown={onMouseDownDrag}
+      onMouseDown={handleMouseDownDrag}
     >
-      {/* Borda + fundo */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        border: editing ? '2px solid #f97316' : '1.5px dashed #f97316',
-        borderRadius: 4,
-        backgroundColor: editing ? '#ffffff' : 'transparent',
-        pointerEvents: 'none',
-      }} />
-
-      {/* Texto renderizado (quando não editando) */}
+      {/* ── Modo visualização ── */}
       {!editing && (
         <div
           style={{
-            padding: '2px 4px',
-            fontFamily,
-            fontWeight:  item.textStyle.bold   ? 'bold'   : 'normal',
-            fontStyle:   item.textStyle.italic  ? 'italic' : 'normal',
-            color:       item.textStyle.color,
-            fontSize:    `${Math.min(item.textStyle.fontSize, 32)}px`,
-            whiteSpace:  'pre-wrap',
-            wordBreak:   'break-word',
-            lineHeight:  1.2,
+            position:        'relative',
+            padding:         '2px 6px',
+            border:          '1.5px solid #f97316',
+            borderRadius:    2,
+            backgroundColor: 'transparent',
+            fontFamily:      displayFontFamily,
+            fontWeight:      item.textStyle.bold   ? 'bold'   : 'normal',
+            fontStyle:       item.textStyle.italic ? 'italic' : 'normal',
+            color:           item.textStyle.color  || '#000',
+            fontSize:        `${item.textStyle.fontSize || 16}px`,
+            whiteSpace:      'pre-wrap',
+            wordBreak:       'break-word',
+            lineHeight:      1.3,
           }}
-          onDoubleClick={() => { setEditing(true); setLocalText(item.text); setLocalStyle(item.textStyle) }}
+          onDoubleClick={() => {
+            setLocalText(item.text)
+            setLocalStyle({ ...item.textStyle })
+            setEditing(true)
+          }}
         >
-          {item.text}
+          {item.text || <span style={{ opacity: 0.4, fontStyle: 'italic' }}>texto vazio</span>}
+
+          {/* Botão remover */}
+          <button
+            data-nodrag="true"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={() => onRemove(item.id)}
+            title="Remover"
+            style={{
+              position:   'absolute', top: -10, right: -10,
+              width: 20, height: 20, borderRadius: '50%',
+              background: '#ef4444', border: '2px solid #fff',
+              color: '#fff', fontSize: 13, lineHeight: '16px',
+              cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            }}
+          >×</button>
+
+          {/* Dica */}
+          <div style={{
+            position: 'absolute', bottom: -16, left: 0,
+            fontSize: 9, color: '#f97316', whiteSpace: 'nowrap',
+            pointerEvents: 'none', opacity: 0.8,
+          }}>
+            ✥ arrastar · duplo clique para editar
+          </div>
         </div>
       )}
 
-      {/* Editor inline */}
+      {/* ── Modo edição ── */}
       {editing && (
-        <div className="no-drag" style={{ padding: 6 }} onMouseDown={e => e.stopPropagation()}>
-          {/* Mini toolbar */}
-          <div style={{ display:'flex', gap:4, marginBottom:6, flexWrap:'wrap', alignItems:'center' }}>
+        <div
+          data-nodrag="true"
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            background:   '#fff',
+            border:       '2px solid #f97316',
+            borderRadius: 8,
+            padding:      8,
+            boxShadow:    '0 4px 20px rgba(0,0,0,0.25)',
+            minWidth:     240,
+          }}
+        >
+          {/* Toolbar */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             <select
               value={localStyle.fontName}
               onChange={e => setLocalStyle(s => ({ ...s, fontName: e.target.value }))}
-              style={{ fontSize:10, border:'1px solid #e5e7eb', borderRadius:6, padding:'2px 4px' }}
+              style={{ fontSize: 10, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 4px' }}
             >
               {FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
             </select>
+
             <select
               value={localStyle.fontSize}
               onChange={e => setLocalStyle(s => ({ ...s, fontSize: parseInt(e.target.value) }))}
-              style={{ fontSize:10, border:'1px solid #e5e7eb', borderRadius:6, padding:'2px 4px', width:48 }}
+              style={{ fontSize: 10, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 4px', width: 46 }}
             >
               {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
+
             <button
               onClick={() => setLocalStyle(s => ({ ...s, bold: !s.bold }))}
               style={{
-                padding:'2px 6px', borderRadius:6, fontSize:11, fontWeight:'bold',
-                border: localStyle.bold ? '2px solid #111' : '1px solid #e5e7eb',
-                background: localStyle.bold ? '#111' : '#fff',
-                color: localStyle.bold ? '#fff' : '#374151',
+                padding: '2px 7px', borderRadius: 4, fontSize: 12, fontWeight: 'bold',
+                border:     localStyle.bold ? '2px solid #111' : '1px solid #d1d5db',
+                background: localStyle.bold ? '#111' : '#f9fafb',
+                color:      localStyle.bold ? '#fff' : '#374151',
+                cursor: 'pointer',
               }}
             >B</button>
+
             <button
               onClick={() => setLocalStyle(s => ({ ...s, italic: !s.italic }))}
               style={{
-                padding:'2px 6px', borderRadius:6, fontSize:11, fontStyle:'italic',
-                border: localStyle.italic ? '2px solid #111' : '1px solid #e5e7eb',
-                background: localStyle.italic ? '#111' : '#fff',
-                color: localStyle.italic ? '#fff' : '#374151',
+                padding: '2px 7px', borderRadius: 4, fontSize: 12, fontStyle: 'italic',
+                border:     localStyle.italic ? '2px solid #111' : '1px solid #d1d5db',
+                background: localStyle.italic ? '#111' : '#f9fafb',
+                color:      localStyle.italic ? '#fff' : '#374151',
+                cursor: 'pointer',
               }}
             >I</button>
-            {/* Cores */}
-            <div style={{ display:'flex', gap:2, flexWrap:'wrap', maxWidth:96 }}>
+
+            {/* Paleta de cores */}
+            <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', maxWidth: 100 }}>
               {COLORS.map(c => (
                 <div
                   key={c}
                   onClick={() => setLocalStyle(s => ({ ...s, color: c }))}
                   style={{
-                    width:14, height:14, borderRadius:3,
+                    width: 14, height: 14, borderRadius: 3,
                     backgroundColor: c,
-                    border: localStyle.color === c ? '2px solid #f97316' : '1px solid #e5e7eb',
-                    cursor:'pointer',
+                    border: localStyle.color === c ? '2px solid #f97316' : '1px solid #d1d5db',
+                    cursor: 'pointer',
                   }}
                 />
               ))}
             </div>
           </div>
 
-          {/* Input */}
+          {/* Textarea */}
           <textarea
             autoFocus
             value={localText}
             onChange={e => setLocalText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit() } if (e.key === 'Escape') { setEditing(false) } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit() }
+              if (e.key === 'Escape') cancelEdit()
+            }}
+            placeholder="Digite o texto..."
             style={{
-              width: '100%', minHeight: 40, resize: 'none',
-              border: '1px solid #e5e7eb', borderRadius: 6,
-              padding: '4px 6px', fontSize: 12, outline: 'none',
-              fontFamily, fontWeight: localStyle.bold ? 'bold' : 'normal',
-              fontStyle: localStyle.italic ? 'italic' : 'normal',
-              color: localStyle.color,
+              width:        '100%',
+              minHeight:    36,
+              resize:       'vertical',
+              border:       '1px solid #e5e7eb',
+              borderRadius: 6,
+              padding:      '4px 6px',
+              fontSize:     13,
+              outline:      'none',
+              fontFamily,
+              fontWeight:   localStyle.bold   ? 'bold'   : 'normal',
+              fontStyle:    localStyle.italic ? 'italic' : 'normal',
+              color:        localStyle.color,
+              lineHeight:   1.4,
             }}
           />
-          <div style={{ display:'flex', gap:4, marginTop:4 }}>
+
+          {/* Botões */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
             <button
               onClick={commitEdit}
-              style={{ flex:1, padding:'4px 0', background:'#f97316', color:'#fff', border:'none', borderRadius:6, fontSize:11, fontWeight:'bold', cursor:'pointer' }}
+              style={{
+                flex: 1, padding: '5px 0',
+                background: '#f97316', color: '#fff',
+                border: 'none', borderRadius: 6,
+                fontSize: 12, fontWeight: 'bold', cursor: 'pointer',
+              }}
             >✓ OK</button>
             <button
-              onClick={() => setEditing(false)}
-              style={{ flex:1, padding:'4px 0', background:'#f3f4f6', color:'#374151', border:'none', borderRadius:6, fontSize:11, cursor:'pointer' }}
+              onClick={cancelEdit}
+              style={{
+                flex: 1, padding: '5px 0',
+                background: '#f3f4f6', color: '#374151',
+                border: '1px solid #e5e7eb', borderRadius: 6,
+                fontSize: 12, cursor: 'pointer',
+              }}
             >Cancelar</button>
           </div>
         </div>
       )}
-
-      {/* Botões de ação (quando não editando) */}
-      {!editing && (
-        <>
-          {/* Editar */}
-          <button
-            className="no-drag"
-            onMouseDown={e => e.stopPropagation()}
-            onClick={() => { setEditing(true); setLocalText(item.text); setLocalStyle(item.textStyle) }}
-            style={{
-              position:'absolute', top:-12, right:20,
-              width:20, height:20, borderRadius:'50%',
-              background:'#f97316', border:'none', color:'#fff',
-              fontSize:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-            }}
-            title="Editar texto"
-          >✎</button>
-
-          {/* Remover */}
-          <button
-            className="no-drag"
-            onMouseDown={e => e.stopPropagation()}
-            onClick={() => onRemove(item.id)}
-            style={{
-              position:'absolute', top:-12, right:-4,
-              width:20, height:20, borderRadius:'50%',
-              background:'#ef4444', border:'none', color:'#fff',
-              fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-            }}
-            title="Remover"
-          >×</button>
-        </>
-      )}
-
-      {/* Alça de redimensionar */}
-      <div
-        className="no-drag"
-        onMouseDown={onMouseDownResize}
-        style={{
-          position:'absolute', bottom:-6, right:-6,
-          width:14, height:14, borderRadius:3,
-          background:'#f97316', cursor:'se-resize',
-          border:'2px solid #fff',
-        }}
-      />
     </div>
   )
 }
@@ -274,24 +297,21 @@ export default function PDFCanvas({
   imageUrl, blocks, mode, pageInfo,
   onBlockClick, onBlockHover,
   onSelectionFinished, onPaste,
-  // elementos de texto arrastáveis
   textElements, onUpdateTextElement, onRemoveTextElement,
 }) {
-  const containerRef = useRef(null)
-  const [imgSize, setImgSize]   = useState({ w: 0, h: 0 })
-  const [drag, setDrag]         = useState(null)
-  const [dragging, setDragging] = useState(false)
-  const [startPt, setStartPt]   = useState(null)
+  const containerRef              = useRef(null)
+  const imgRef                    = useRef(null)
+  const [imgSize, setImgSize]     = useState({ w: 0, h: 0 })
+  const [drag, setDrag]           = useState(null)
+  const [dragging, setDragging]   = useState(false)
+  const [startPt, setStartPt]     = useState(null)
   const [hoveredId, setHoveredId] = useState(null)
 
   const onImgLoad = (e) => setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight })
 
   const toPct = useCallback((px, py, pw, ph) => {
-    const cont = containerRef.current
-    if (!cont || !imgSize.w) return null
-    const img = cont.querySelector('img')
-    if (!img) return null
-    const rect = img.getBoundingClientRect()
+    if (!imgRef.current || !imgSize.w) return null
+    const rect = imgRef.current.getBoundingClientRect()
     return {
       x_pct: Math.max(0, (px / rect.width)  * 100),
       y_pct: Math.max(0, (py / rect.height) * 100),
@@ -311,17 +331,14 @@ export default function PDFCanvas({
   }, [pageInfo])
 
   const getLocalPos = (e) => {
-    const img = containerRef.current?.querySelector('img')
-    if (!img) return { x: 0, y: 0 }
-    const rect = img.getBoundingClientRect()
+    if (!imgRef.current) return { x: 0, y: 0 }
+    const rect = imgRef.current.getBoundingClientRect()
     return { x: e.clientX - rect.left, y: e.clientY - rect.top }
   }
 
   const onMouseDown = (e) => {
     if (mode === 'edit') return
-    // Não inicia drag se clicar em elemento de texto (verifica o alvo e seus pais)
     if (e.target.closest('[data-text-element]')) return
-    // Também ignora se o evento já foi stopPropagated por um filho
     if (e.defaultPrevented) return
     e.preventDefault()
     const pos = getLocalPos(e)
@@ -377,6 +394,7 @@ export default function PDFCanvas({
     >
       {/* PDF */}
       <img
+        ref={imgRef}
         src={imageUrl}
         alt="PDF page"
         onLoad={onImgLoad}
@@ -402,20 +420,20 @@ export default function PDFCanvas({
           >
             {isHovered && !isEdited && (
               <div style={{
-                position:'absolute', inset:'-2px',
-                border:'2px solid #ff8c00', borderRadius:2,
-                backgroundColor:'rgba(255,140,0,0.08)', pointerEvents:'none',
+                position: 'absolute', inset: '-2px',
+                border: '2px solid #ff8c00', borderRadius: 2,
+                backgroundColor: 'rgba(255,140,0,0.08)', pointerEvents: 'none',
               }} />
             )}
             {isEdited && (
               <div style={{
-                position:'absolute', inset:0,
-                backgroundColor:'rgba(255,255,180,0.92)',
-                border:'2px solid #ff8c00', borderRadius:2,
-                display:'flex', alignItems:'center',
-                paddingLeft:3, paddingRight:3,
-                overflow:'hidden', whiteSpace:'nowrap',
-                fontSize:`${Math.max(9, block.font_size * 0.72)}px`,
+                position: 'absolute', inset: 0,
+                backgroundColor: 'rgba(255,255,180,0.92)',
+                border: '2px solid #ff8c00', borderRadius: 2,
+                display: 'flex', alignItems: 'center',
+                paddingLeft: 3, paddingRight: 3,
+                overflow: 'hidden', whiteSpace: 'nowrap',
+                fontSize: `${Math.max(9, block.font_size * 0.72)}px`,
                 fontWeight: block.is_bold   ? 'bold'   : 'normal',
                 fontStyle:  block.is_italic ? 'italic' : 'normal',
                 color: block.color_rgb
@@ -429,27 +447,26 @@ export default function PDFCanvas({
         )
       })}
 
-      {/* Elementos de texto arrastáveis (modo lápis) */}
+      {/* Elementos de texto arrastáveis */}
       {(textElements || []).map(item => (
         <DraggableText
           key={item.id}
           item={item}
-          containerRef={containerRef}
+          imgRef={imgRef}
           onUpdate={onUpdateTextElement}
           onRemove={onRemoveTextElement}
-          onConfirm={() => {}}
         />
       ))}
 
       {/* Retângulo de seleção */}
       {drag && (drag.w > 5 || drag.h > 5) && (
         <div style={{
-          position:'absolute',
+          position: 'absolute',
           left: drag.x, top: drag.y,
           width: drag.w, height: drag.h,
-          border:`2px dashed ${mode === 'erase' ? '#cc3333' : mode === 'pencil' ? '#16a34a' : '#3366cc'}`,
+          border: `2px dashed ${mode === 'erase' ? '#cc3333' : mode === 'pencil' ? '#16a34a' : '#3366cc'}`,
           backgroundColor: mode === 'erase' ? 'rgba(204,51,51,0.1)' : mode === 'pencil' ? 'rgba(22,163,74,0.1)' : 'rgba(51,102,204,0.1)',
-          pointerEvents:'none', borderRadius:2,
+          pointerEvents: 'none', borderRadius: 2,
         }} />
       )}
     </div>
