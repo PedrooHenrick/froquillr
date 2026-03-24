@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,8 @@ import Toolbar from "@/components/Toolbar";
 import PDFCanvas from "@/components/PDFCanvas";
 // @ts-ignore
 import TextPanel from "@/components/TextPanel";
+// @ts-ignore
+import TextToolbar from "@/components/TextToolbar";
 import {
   renderPage, extractText, eraseArea,
   addSignature, saveTextEdits, downloadUrl,
@@ -17,14 +19,12 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// ── Baixa PDF original do Supabase e envia pro Railway ────────────────────
 async function uploadToRailway(filePath: string, filename: string) {
   const { data: urlData } = await supabase.storage
     .from("pdfs").createSignedUrl(filePath, 600);
   if (!urlData?.signedUrl) throw new Error("Erro ao acessar o arquivo.");
   const blob = await fetch(urlData.signedUrl).then(r => r.blob());
   const file = new File([blob], filename, { type: "application/pdf" });
-
   const form = new FormData();
   form.append("file", file);
   const res  = await fetch(`${API_BASE}/upload`, { method: "POST", body: form });
@@ -33,7 +33,6 @@ async function uploadToRailway(filePath: string, filename: string) {
   return data;
 }
 
-// ── Salva PDF editado do Railway de volta no Supabase ─────────────────────
 async function syncEditedPdfToSupabase(sessionId: string, filePath: string) {
   try {
     const res = await fetch(`${API_BASE}/download/${sessionId}`);
@@ -42,17 +41,19 @@ async function syncEditedPdfToSupabase(sessionId: string, filePath: string) {
     const { error } = await supabase.storage
       .from("pdfs")
       .update(filePath, blob, { contentType: "application/pdf", upsert: true });
-    if (error) {
-      console.error("[sync] Erro ao salvar PDF editado no Supabase:", error);
-      return false;
-    }
-    console.log("[sync] PDF editado salvo no Supabase ✅");
+    if (error) { console.error("[sync] erro:", error); return false; }
     return true;
-  } catch (e) {
-    console.error("[sync] Falha ao sincronizar:", e);
-    return false;
-  }
+  } catch (e) { console.error("[sync] falha:", e); return false; }
 }
+
+// Estilo padrão do texto no modo lápis
+const DEFAULT_TEXT_STYLE = {
+  fontName: "arial",
+  fontSize: 16,
+  bold:     false,
+  italic:   false,
+  color:    "#000000",
+};
 
 const Editor = () => {
   const { id } = useParams();
@@ -61,26 +62,45 @@ const Editor = () => {
 
   const initialized = useRef(false);
 
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState("");
-  const [session, setSession]       = useState<any>(null);
-  const [page, setPage]             = useState(0);
-  const [mode, setMode]             = useState("edit");
-  const [blocks, setBlocks]         = useState<any[]>([]);
-  const [extracting, setExtracting] = useState(false);
-  const [saving, setSaving]         = useState(false);
-  const [status, setStatus]         = useState('Clique em "Extrair Textos" para começar');
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState("");
+  const [session, setSession]         = useState<any>(null);
+  const [page, setPage]               = useState(0);
+  const [mode, setMode]               = useState("edit");
+  const [blocks, setBlocks]           = useState<any[]>([]);
+  const [extracting, setExtracting]   = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [status, setStatus]           = useState('Clique em "Extrair Textos" para começar');
   const [hoveredBlock, setHoveredBlock] = useState(null);
-  const [pending, setPending]       = useState<any[]>([]);
-  const [textEdits, setTextEdits]   = useState<any>({});
+  const [pending, setPending]         = useState<any[]>([]);
+  const [textEdits, setTextEdits]     = useState<any>({});
   const [imgTimestamp, setImgTimestamp] = useState(() => Date.now());
+
+  // ── Estado do modo lápis ──────────────────────────────────────────────
+  const [textStyle, setTextStyle]     = useState(DEFAULT_TEXT_STYLE);
+  const [pendingTextRect, setPendingTextRect] = useState<any>(null); // área selecionada aguardando texto
+  const [textInput, setTextInput]     = useState("");
+  const [showTextToolbar, setShowTextToolbar] = useState(false);
+
+  // ── Histórico para Ctrl+Z ─────────────────────────────────────────────
+  const [history, setHistory]         = useState<string[]>([]); // lista de session_ids de snapshots
+  const pushHistory = useCallback(async (sessionId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/snapshot/${sessionId}`, { method: "POST" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.snapshot_id) {
+        setHistory(prev => [...prev.slice(-19), data.snapshot_id]); // máx 20
+      }
+    } catch { /* silencioso */ }
+  }, []);
 
   const hasPending = pending.length > 0 || Object.keys(textEdits).length > 0;
   const editCount  = Object.keys(textEdits).length;
   const refreshImage = () => setImgTimestamp(Date.now());
   const sb = (msg: string) => setStatus(msg);
 
-  // ── Keep-alive — evita Railway hibernar ───────────────────────────────
+  // ── Keep-alive ────────────────────────────────────────────────────────
   useEffect(() => {
     const ping = () => fetch(`${API_BASE}/`).catch(() => {});
     ping();
@@ -88,7 +108,32 @@ const Editor = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Init — roda só UMA vez ────────────────────────────────────────────
+  // ── Ctrl+Z ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        if (history.length === 0 || !session) return;
+        const snapshotId = history[history.length - 1];
+        setHistory(prev => prev.slice(0, -1));
+        try {
+          sb("↩ Desfazendo...");
+          const res = await fetch(`${API_BASE}/undo/${session.session_id}/${snapshotId}`, { method: "POST" });
+          if (res.ok) {
+            refreshImage();
+            setBlocks([]);
+            sb("↩ Ação desfeita");
+          } else {
+            sb("❌ Não foi possível desfazer");
+          }
+        } catch { sb("❌ Erro ao desfazer"); }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [history, session]);
+
+  // ── Init ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id || !user?.id) return;
     if (initialized.current) return;
@@ -102,13 +147,11 @@ const Editor = () => {
 
         if (docErr || !doc) { setError("Documento não encontrado."); return; }
 
-        // Guarda file_path original — nunca sobrescreve
         sessionStorage.setItem(`doc_${id}`, JSON.stringify({
           file_path: doc.file_path,
           name: doc.name,
         }));
 
-        // Usa sessão salva se Railway ainda tem ela
         const stored = sessionStorage.getItem(`session_${id}`);
         if (stored) {
           setSession(JSON.parse(stored));
@@ -116,7 +159,6 @@ const Editor = () => {
           return;
         }
 
-        // Primeira vez — baixa do Supabase (já pode ser o PDF editado) e envia pro Railway
         sb("Carregando documento...");
         const sessionData = await uploadToRailway(doc.file_path, doc.name);
         sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
@@ -132,38 +174,27 @@ const Editor = () => {
     init();
   }, [id, user?.id]);
 
-  // ── Sai da aba — verifica sessão ao voltar ────────────────────────────
+  // ── Visibilidade ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
     const handle = async () => {
       if (document.visibilityState === "hidden") {
-        // Salva estado atual das edições pendentes no sessionStorage
-        sessionStorage.setItem(`edits_${id}`, JSON.stringify({
-          pending,
-          textEdits,
-          page,
-        }));
+        sessionStorage.setItem(`edits_${id}`, JSON.stringify({ pending, textEdits, page }));
         return;
       }
-
-      // Voltando à aba — verifica se sessão ainda existe no Railway
       const stored = sessionStorage.getItem(`session_${id}`);
       if (!stored) return;
       const parsed = JSON.parse(stored);
       try {
         const res = await fetch(`${API_BASE}/session-check/${parsed.session_id}`);
         if (!res.ok) {
-          // Railway reiniciou — sobe o PDF do Supabase (já é o editado se sincronizou)
           const storedDoc = sessionStorage.getItem(`doc_${id}`);
           if (!storedDoc) return;
           const doc = JSON.parse(storedDoc);
-
           sb("Reconectando...");
           const sessionData = await uploadToRailway(doc.file_path, doc.name);
           sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
           setSession(sessionData);
-
-          // Restaura estado das edições pendentes
           const savedEdits = sessionStorage.getItem(`edits_${id}`);
           if (savedEdits) {
             const { pending: p, textEdits: t, page: pg } = JSON.parse(savedEdits);
@@ -176,13 +207,11 @@ const Editor = () => {
               sb('Clique em "Extrair Textos" para começar');
             }
           }
-
           setBlocks([]);
           refreshImage();
         }
       } catch { /* silencioso */ }
     };
-
     document.addEventListener("visibilitychange", handle);
     return () => document.removeEventListener("visibilitychange", handle);
   }, [id, pending, textEdits, page]);
@@ -199,19 +228,17 @@ const Editor = () => {
     finally { setExtracting(false); }
   };
 
-  // ── Edição de texto ───────────────────────────────────────────────────
+  // ── Edição de texto (modo extrair) ────────────────────────────────────
   const handleBlockClick = (block: any) => {
     if (mode !== "edit") return;
     if (block._confirmedText !== undefined) {
       const newText = block._confirmedText;
       if (!newText || newText === block.text) {
         const u = { ...textEdits }; delete u[block.id]; setTextEdits(u);
-        setBlocks(prev => prev.map(b => b.id === block.id
-          ? { ...b, _edited: false, _new_text: undefined } : b));
+        setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, _edited: false, _new_text: undefined } : b));
       } else {
         setTextEdits((prev: any) => ({ ...prev, [block.id]: { block, new_text: newText, page } }));
-        setBlocks(prev => prev.map(b => b.id === block.id
-          ? { ...b, _edited: true, _new_text: newText } : b));
+        setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, _edited: true, _new_text: newText } : b));
       }
       return;
     }
@@ -219,34 +246,32 @@ const Editor = () => {
     if (newText === null) return;
     if (newText === block.text) {
       const u = { ...textEdits }; delete u[block.id]; setTextEdits(u);
-      setBlocks(prev => prev.map(b => b.id === block.id
-        ? { ...b, _edited: false, _new_text: undefined } : b));
+      setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, _edited: false, _new_text: undefined } : b));
     } else {
       setTextEdits((prev: any) => ({ ...prev, [block.id]: { block, new_text: newText, page } }));
-      setBlocks(prev => prev.map(b => b.id === block.id
-        ? { ...b, _edited: true, _new_text: newText } : b));
+      setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, _edited: true, _new_text: newText } : b));
     }
   };
 
   const handlePanelEdit = (block: any, newText: string) => {
     if (newText === block.text) {
       const u = { ...textEdits }; delete u[block.id]; setTextEdits(u);
-      setBlocks(prev => prev.map(b => b.id === block.id
-        ? { ...b, _edited: false, _new_text: undefined } : b));
+      setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, _edited: false, _new_text: undefined } : b));
     } else {
       setTextEdits((prev: any) => ({ ...prev, [block.id]: { block, new_text: newText, page } }));
-      setBlocks(prev => prev.map(b => b.id === block.id
-        ? { ...b, _edited: true, _new_text: newText } : b));
+      setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, _edited: true, _new_text: newText } : b));
     }
   };
 
-  // ── Erase / Signature ─────────────────────────────────────────────────
+  // ── Seleção de área (erase / signature / lápis) ───────────────────────
   const handleSelection = async (rect: any) => {
     if (!session) return;
+
     if (mode === "erase") {
       if (!window.confirm("Apagar o conteúdo desta área?")) return;
       setPending(prev => [...prev, { type: "erase", page, rect }]);
       sb("Área marcada · Aperte Salvar");
+
     } else if (mode === "signature") {
       const input = document.createElement("input");
       input.type = "file"; input.accept = "image/*";
@@ -258,6 +283,13 @@ const Editor = () => {
         }
       };
       input.click();
+
+    } else if (mode === "pencil") {
+      // Modo lápis: abre toolbar de texto na área selecionada
+      setPendingTextRect(rect);
+      setTextInput("");
+      setShowTextToolbar(true);
+      sb("Digite o texto e confirme");
     }
   };
 
@@ -267,16 +299,66 @@ const Editor = () => {
     sb("Imagem colada · Aperte Salvar");
   };
 
-  // ── Salvar — aplica edições E sincroniza PDF editado pro Supabase ─────
+  // ── Confirmar texto do lápis ──────────────────────────────────────────
+  const handleConfirmText = () => {
+    if (!textInput.trim() || !pendingTextRect) return;
+    setPending(prev => [...prev, {
+      type:      "add_text",
+      page,
+      rect:      pendingTextRect,
+      text:      textInput.trim(),
+      textStyle: { ...textStyle },
+    }]);
+    setShowTextToolbar(false);
+    setPendingTextRect(null);
+    setTextInput("");
+    sb("Texto marcado · Aperte Salvar");
+  };
+
+  const handleCancelText = () => {
+    setShowTextToolbar(false);
+    setPendingTextRect(null);
+    setTextInput("");
+    sb("Cancelado");
+  };
+
+  // ── Salvar ────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!session || !hasPending) return;
     setSaving(true); sb("💾 Salvando...");
     try {
+      // Tira snapshot antes de salvar (para Ctrl+Z)
+      await pushHistory(session.session_id);
+
       for (const p of pending.filter(p => p.type === "erase"))
         await eraseArea(session.session_id, p.page, p.rect);
+
       for (const p of pending.filter(p => p.type === "signature"))
         await addSignature(session.session_id, p.page, p.rect, p.file);
 
+      // Textos do lápis
+      for (const p of pending.filter(p => p.type === "add_text")) {
+        await fetch(`${API_BASE}/add-text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: session.session_id,
+            page:       p.page,
+            x_pct:      p.rect.x_pct,
+            y_pct:      p.rect.y_pct,
+            w_pct:      p.rect.w_pct,
+            h_pct:      p.rect.h_pct,
+            text:       p.text,
+            font_name:  p.textStyle.fontName,
+            font_size:  p.textStyle.fontSize,
+            bold:       p.textStyle.bold,
+            italic:     p.textStyle.italic,
+            color_hex:  p.textStyle.color,
+          }),
+        });
+      }
+
+      // Textos do modo extrair
       const edits = Object.values(textEdits).map(({ block, new_text, page }: any) => ({
         page, block_id: block.id, original_text: block.text, new_text,
         x0: block.x0, y0: block.y0, x1: block.x1, y1: block.y1,
@@ -285,9 +367,7 @@ const Editor = () => {
       }));
       if (edits.length > 0) await saveTextEdits(session.session_id, edits);
 
-      // ── Sincroniza PDF editado de volta pro Supabase ──────────────────
-      // Assim quando o Railway hibernar e a sessão cair,
-      // ao voltar ele sobe a versão mais recente — não o original.
+      // Sincroniza PDF editado pro Supabase
       const storedDoc = sessionStorage.getItem(`doc_${id}`);
       if (storedDoc) {
         const { file_path } = JSON.parse(storedDoc);
@@ -310,6 +390,7 @@ const Editor = () => {
 
   const goPage = (n: number) => {
     setPage(n); setBlocks([]); setMode("edit"); refreshImage();
+    setShowTextToolbar(false); setPendingTextRect(null);
     sb("Página " + (n + 1));
   };
 
@@ -344,6 +425,11 @@ const Editor = () => {
         onDownload={() => window.open(downloadUrl(session.session_id))}
         filename={session.filename}
         downloadUrl={downloadUrl(session.session_id)}
+        canUndo={history.length > 0}
+        onUndo={() => {
+          const e = new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true });
+          window.dispatchEvent(e);
+        }}
       />
 
       <div className="text-gray-400 text-xs px-3 py-1 border-b border-gray-200 flex items-center gap-2">
@@ -351,13 +437,14 @@ const Editor = () => {
           ← Painel
         </button>
         <span>{status}</span>
-        {mode === "erase"     && <span className="text-red-400 ml-2">Arraste sobre a área que deseja apagar</span>}
+        {mode === "erase"   && <span className="text-red-400 ml-2">Arraste sobre a área que deseja apagar</span>}
         {mode === "signature" && <span className="text-blue-400 ml-2">Arraste para posicionar · Ctrl+V para colar</span>}
+        {mode === "pencil"  && <span className="text-green-500 ml-2">Arraste para selecionar onde adicionar texto</span>}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-6">
-          <div className="w-full max-w-3xl">
+          <div className="w-full max-w-3xl relative">
             <PDFCanvas
               imageUrl={`${renderPage(session.session_id, page)}&t=${imgTimestamp}`}
               blocks={blocks} mode={mode}
@@ -367,9 +454,27 @@ const Editor = () => {
               onSelectionFinished={handleSelection}
               onPaste={handlePaste}
             />
+
+            {/* Toolbar flutuante do lápis */}
+            {showTextToolbar && pendingTextRect && (
+              <TextToolbar
+                rect={pendingTextRect}
+                text={textInput}
+                onTextChange={setTextInput}
+                style={textStyle}
+                onStyleChange={setTextStyle}
+                onConfirm={handleConfirmText}
+                onCancel={handleCancelText}
+              />
+            )}
           </div>
         </div>
-        <TextPanel blocks={blocks} onEdit={handlePanelEdit} onFocus={setHoveredBlock} editCount={editCount} />
+        <TextPanel
+          blocks={blocks}
+          onEdit={handlePanelEdit}
+          onFocus={setHoveredBlock}
+          editCount={editCount}
+        />
       </div>
     </div>
   );
