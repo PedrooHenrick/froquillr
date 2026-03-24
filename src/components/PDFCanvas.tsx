@@ -31,16 +31,22 @@ function DraggableText({ item, imgRef, onUpdate, onRemove }) {
     e.preventDefault()
     e.stopPropagation()
 
-    const rect = getImgRect()
+    const rect    = getImgRect()
     if (!rect) return
 
+    // Posição do clique dentro da imagem (em %)
+    const clickXpct = ((e.clientX - rect.left) / rect.width)  * 100
+    const clickYpct = ((e.clientY - rect.top)  / rect.height) * 100
+
+    // Offset: onde dentro do elemento o usuário clicou
+    const offsetX = clickXpct - item.x_pct
+    const offsetY = clickYpct - item.y_pct
+
     dragRef.current = {
-      startMx: e.clientX,
-      startMy: e.clientY,
-      startX:  item.x_pct,
-      startY:  item.y_pct,
-      rectW:   rect.width,
-      rectH:   rect.height,
+      offsetX,
+      offsetY,
+      rectW: rect.width,
+      rectH: rect.height,
     }
     setIsDragging(true)
   }
@@ -51,11 +57,17 @@ function DraggableText({ item, imgRef, onUpdate, onRemove }) {
     const onMove = (e) => {
       const d = dragRef.current
       if (!d) return
-      const dx = ((e.clientX - d.startMx) / d.rectW) * 100
-      const dy = ((e.clientY - d.startMy) / d.rectH) * 100
+      const rect = getImgRect()
+      if (!rect) return
+
+      // Posição atual do mouse em % da imagem
+      const mouseXpct = ((e.clientX - rect.left) / rect.width)  * 100
+      const mouseYpct = ((e.clientY - rect.top)  / rect.height) * 100
+
+      // Subtrai o offset para o elemento não "saltar"
       onUpdate(item.id, {
-        x_pct: Math.max(0, Math.min(96, d.startX + dx)),
-        y_pct: Math.max(0, Math.min(96, d.startY + dy)),
+        x_pct: Math.max(0, Math.min(96, mouseXpct - d.offsetX)),
+        y_pct: Math.max(0, Math.min(96, mouseYpct - d.offsetY)),
       })
     }
 
