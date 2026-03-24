@@ -30,6 +30,7 @@ function DraggableText({ item, containerRef, onUpdate, onRemove, onConfirm }) {
   const onMouseDownDrag = (e) => {
     if (e.target.closest('.no-drag')) return
     e.preventDefault()
+    e.stopPropagation()  // ← impede que o PDFCanvas inicie seleção de área
     setDragging(true)
     dragStart.current = {
       mx: e.clientX, my: e.clientY,
@@ -40,7 +41,7 @@ function DraggableText({ item, containerRef, onUpdate, onRemove, onConfirm }) {
   // Redimensionar (canto inferior direito)
   const onMouseDownResize = (e) => {
     e.preventDefault()
-    e.stopPropagation()
+    e.stopPropagation()  // ← já tinha, mantido
     setResizing(true)
     resizeStart.current = {
       mx: e.clientX, my: e.clientY,
@@ -312,8 +313,10 @@ export default function PDFCanvas({
 
   const onMouseDown = (e) => {
     if (mode === 'edit') return
-    // Não inicia drag se clicar em elemento de texto
+    // Não inicia drag se clicar em elemento de texto (verifica o alvo e seus pais)
     if (e.target.closest('[data-text-element]')) return
+    // Também ignora se o evento já foi stopPropagated por um filho
+    if (e.defaultPrevented) return
     e.preventDefault()
     const pos = getLocalPos(e)
     setStartPt(pos)
