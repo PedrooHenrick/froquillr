@@ -1,23 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-
-type Profile = {
-  id: string;
-  user_id: string;
-  full_name: string | null;
-  email: string | null;
-  avatar_url: string | null;
-  plan: string;
-  objective: string | null;
-  onboarding_completed: boolean;
-  edit_count?: number;
-};
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 type AuthContextType = {
-  user: User | null;
-  session: Session | null;
-  profile: Profile | null;
+  user: { id: string } | null;
+  profile: { plan: string; edit_count_week: number; edit_credits: number } | null;
   loading: boolean;
   profileLoading: boolean;
   signOut: () => Promise<void>;
@@ -26,80 +11,45 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
   profile: null,
   loading: true,
-  profileLoading: true,
+  profileLoading: false,
   signOut: async () => {},
   refreshProfile: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
+function getOrCreateUserId(): string {
+  let id = localStorage.getItem("quillr_uid");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("quillr_uid", id);
+  }
+  return id;
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser]               = useState<User | null>(null);
-  const [session, setSession]         = useState<Session | null>(null);
-  const [profile, setProfile]         = useState<Profile | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [profileLoading, setProfileLoading] = useState(true);
-
-  const fetchProfile = async (userId: string) => {
-    setProfileLoading(true);
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-    setProfile(data ?? null);
-    setProfileLoading(false);
-  };
-
-  const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
-  };
+  const [user, setUser] = useState<{ id: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Sessão inicial — libera loading rápido, perfil carrega em paralelo
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfileLoading(false);
-      }
-    });
-
-    // Mudanças de auth — ignora TOKEN_REFRESHED para não causar re-render
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        // TOKEN_REFRESHED acontece ao voltar à aba — não precisa re-renderizar
-        if (event === "TOKEN_REFRESHED") return;
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        if (session?.user) {
-          fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setProfileLoading(false);
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    const id = getOrCreateUserId();
+    setUser({ id });
+    setLoading(false);
   }, []);
 
+  const profile = { plan: "pro", edit_count_week: 0, edit_credits: 999 };
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem("quillr_uid");
     setUser(null);
-    setSession(null);
-    setProfile(null);
   };
 
+  const refreshProfile = async () => {};
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, profileLoading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, profileLoading: false, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
