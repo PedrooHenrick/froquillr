@@ -273,7 +273,7 @@ export default function Index() {
               initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.55 }}>
               <img
-                src="https://images.unsplash.com/photo-1633613286991-611fe299a4be?w=800&q=80"
+                src="https://i0.wp.com/cursapt.wpcomstaging.com/wp-content/uploads/2025/05/pessoa-utilizando-o-libreoffice-impress-em-um-computador-criando-slides-modernos-em-um-ambiente-de-estudo-ou-escritorio-estilo-realista-e-profissional.jpg?fit=1536%2C1024&ssl=1"
                 alt="Pessoa editando PDF online no computador"
               />
             </motion.div>
