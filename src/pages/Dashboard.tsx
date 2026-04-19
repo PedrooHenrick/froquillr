@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
@@ -49,6 +49,9 @@ const Dashboard = () => {
       const res  = await fetch(`${API_BASE}/upload`, { method: "POST", body: form });
       const data = await res.json();
       if (!data.session_id) throw new Error("Falha no upload.");
+
+      // Salva sessão no sessionStorage para o Editor encontrar
+      sessionStorage.setItem(`session_${data.session_id}`, JSON.stringify(data));
 
       const newDoc: Document = {
         id:         data.session_id,
