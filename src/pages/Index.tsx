@@ -26,7 +26,7 @@ const PLANS = [
     features: ["3 documentos por semana", "Edição básica de texto", "Download em PDF"],
     cta: "Começar grátis",
     highlight: false,
-    link: "/auth",
+    link: "/dashboard",
   },
   {
     name: "Básico",
@@ -91,10 +91,10 @@ export default function Index() {
           <a href="#precos" className="text-sm text-gray-500 hover:text-gray-800 transition-colors hidden sm:block">
             Preços
           </a>
-          <Link to="/auth" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
+          <Link to="/dashboard" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
             Entrar
           </Link>
-          <Link to="/auth"
+          <Link to="/dashboard"
             className="text-sm font-semibold bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-700 transition-all">
             Começar grátis
           </Link>
@@ -123,12 +123,12 @@ export default function Index() {
         </motion.p>
 
         <motion.div {...fade(0.21)} className="mt-10 flex items-center justify-center gap-3 flex-wrap">
-          <Link to="/auth"
+          <Link to="/dashboard"
             className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold px-7 py-3.5 rounded-full transition-all shadow-sm hover:shadow-lg hover:shadow-orange-100">
             Criar conta grátis
             <ArrowRight size={15} />
           </Link>
-          <Link to="/auth"
+          <Link to="/dashboard"
             className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-800 font-medium px-6 py-3.5 rounded-full border border-gray-200 hover:border-gray-300 transition-all text-sm">
             Já tenho conta
           </Link>
@@ -161,15 +161,12 @@ export default function Index() {
           </div>
 
           <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-            {/* Antes */}
             <div className="p-8">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Antes</p>
               <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
                 <img src={ft1} alt="PDF antes da edição" className="w-full object-cover" />
               </div>
             </div>
-
-            {/* Depois */}
             <div className="p-8">
               <p className="text-xs font-semibold text-orange-500 uppercase tracking-wide mb-4">Depois ✨</p>
               <div className="rounded-2xl overflow-hidden border border-orange-200 shadow-sm">
@@ -237,7 +234,7 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ── Pricing — 3 planos lado a lado ──────────────────────────────── */}
+      {/* ── Pricing ─────────────────────────────────────────────────────── */}
       <section id="precos" className="max-w-5xl mx-auto px-6 pb-28">
         <div className="text-center mb-12">
           <motion.h2
