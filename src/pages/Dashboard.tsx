@@ -184,7 +184,7 @@ export default function Index() {
       {/* Hero */}
       <section className="q-hero">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <span className="q-badge">Ferramenta gratuita de edicao de PDF online</span>
+          <span className="q-badge">Ferramentaa gratuita de edicao de PDF online</span>
           <h1 className="q-h1 q-sora">
             Editar PDF Online<br />
             <span>Gratis e Sem Cadastro</span>
