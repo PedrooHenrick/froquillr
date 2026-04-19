@@ -1,67 +1,132 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Check, ArrowRight, FileText, Eraser, PenTool, Sparkles } from "lucide-react";
+import { FileText, Eraser, PenTool, Sparkles, ChevronDown, Shield, Zap, Globe } from "lucide-react";
 
-import ft1 from "/ft1.png";
-import ft2 from "/ft2.png";
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@700;800&display=swap');
 
-const fade = (delay = 0) => ({
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.5, delay, ease: [0.25, 0.1, 0.25, 1] },
-});
+  .q-wrap { font-family: 'Inter', system-ui, sans-serif; color: #111; background: #fff; -webkit-font-smoothing: antialiased; }
+  .q-sora { font-family: 'Sora', system-ui, sans-serif; }
 
-const FEATURES = [
-  { icon: FileText, title: "Edição de texto",   desc: "Clique em qualquer texto e edite na hora, com fonte e tamanho preservados." },
-  { icon: Eraser,   title: "Apagar áreas",      desc: "Remove assinaturas, carimbos e conteúdo sem deixar rastro." },
-  { icon: PenTool,  title: "Assinaturas",       desc: "Cole ou arraste sua assinatura para qualquer posição." },
-  { icon: Sparkles, title: "IA integrada",      desc: "Identifica fontes, cores e posições automaticamente." },
-];
+  /* Nav */
+  .q-nav { max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; }
+  .q-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .q-logo-text { font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 800; color: #111; }
+  .q-nav-links { display: flex; align-items: center; gap: 28px; }
+  .q-nav-link { font-size: 14px; color: #666; text-decoration: none; transition: color .2s; }
+  .q-nav-link:hover { color: #111; }
+  .q-btn-enter { background: #111; color: #fff; font-size: 14px; font-weight: 600; padding: 9px 22px; border-radius: 999px; text-decoration: none; transition: background .2s; }
+  .q-btn-enter:hover { background: #333; }
 
-const PLANS = [
-  {
-    name: "Grátis",
-    price: "R$ 0",
-    period: "para sempre",
-    features: ["3 documentos por semana", "Edição básica de texto", "Download em PDF"],
-    cta: "Começar grátis",
-    highlight: false,
-    link: "/dashboard",
-  },
-  {
-    name: "Básico",
-    price: "R$ 5",
-    period: "/ 5 PDFs",
-    features: ["5 documentos por compra", "Todas as ferramentas", "Assinatura digital", "Sem expiração"],
-    cta: "Comprar agora",
-    highlight: false,
-    link: "/checkout?plan=basic",
-  },
-  {
-    name: "Pro",
-    price: "R$ 12,80",
-    period: "/mês",
-    features: ["Documentos ilimitados", "Todas as ferramentas", "Assinatura digital", "Suporte prioritário", "Upload até 100MB"],
-    cta: "Assinar Pro",
-    highlight: true,
-    link: "/checkout?plan=pro",
-  },
-];
+  /* Hero */
+  .q-hero { max-width: 860px; margin: 0 auto; padding: 80px 24px 64px; text-align: center; }
+  .q-badge { display: inline-block; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 999px; margin-bottom: 28px; }
+  .q-h1 { font-family: 'Sora', sans-serif; font-size: clamp(36px, 6vw, 64px); font-weight: 800; line-height: 1.1; color: #111; margin: 0 0 20px; }
+  .q-h1 span { color: #f97316; }
+  .q-hero-p { font-size: clamp(16px, 2vw, 20px); color: #666; line-height: 1.7; max-width: 600px; margin: 0 auto 36px; }
+  .q-btn-main { display: inline-block; background: #f97316; color: #fff; font-size: 17px; font-weight: 700; padding: 16px 40px; border-radius: 999px; text-decoration: none; transition: background .2s, box-shadow .2s; box-shadow: 0 8px 24px rgba(249,115,22,.25); }
+  .q-btn-main:hover { background: #ea580c; box-shadow: 0 12px 32px rgba(249,115,22,.3); }
+  .q-hero-sub { margin-top: 16px; font-size: 13px; color: #999; }
+
+  /* Ad slot */
+  .q-ad { max-width: 900px; margin: 0 auto; padding: 0 24px 48px; }
+  .q-ad-slot { background: #fafafa; border: 1.5px dashed #e5e7eb; border-radius: 12px; height: 100px; display: flex; align-items: center; justify-content: center; color: #bbb; font-size: 12px; }
+
+  /* Stats */
+  .q-stats { background: #fff7ed; padding: 40px 24px; }
+  .q-stats-inner { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 24px; text-align: center; }
+  .q-stat-num { font-family: 'Sora', sans-serif; font-size: 36px; font-weight: 800; color: #f97316; }
+  .q-stat-label { font-size: 13px; color: #888; margin-top: 4px; }
+
+  /* Features */
+  .q-features { background: #fafafa; padding: 72px 24px; }
+  .q-section-title { font-family: 'Sora', sans-serif; font-size: clamp(24px, 4vw, 36px); font-weight: 800; color: #111; text-align: center; margin: 0 0 12px; }
+  .q-section-sub { font-size: 15px; color: #888; text-align: center; margin: 0 0 48px; }
+  .q-features-grid { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 20px; }
+  .q-feature-card { background: #fff; border: 1px solid #f0f0f0; border-radius: 20px; padding: 28px; transition: box-shadow .2s, border-color .2s; }
+  .q-feature-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,.07); border-color: #fed7aa; }
+  .q-feature-icon { width: 44px; height: 44px; background: #fff7ed; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: #f97316; }
+  .q-feature-title { font-size: 14px; font-weight: 700; color: #111; margin: 0 0 8px; }
+  .q-feature-desc { font-size: 13px; color: #888; line-height: 1.6; margin: 0; }
+
+  /* Como funciona */
+  .q-how { max-width: 1000px; margin: 0 auto; padding: 72px 24px; }
+  .q-how-box { background: #0f172a; border-radius: 28px; padding: 56px 48px; display: flex; flex-wrap: wrap; gap: 48px; justify-content: space-between; align-items: flex-start; }
+  .q-how-left { max-width: 320px; }
+  .q-how-tag { font-size: 11px; font-weight: 700; color: #fb923c; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 16px; }
+  .q-how-title { font-family: 'Sora', sans-serif; font-size: 30px; font-weight: 800; color: #fff; line-height: 1.25; margin: 0 0 16px; }
+  .q-how-desc { font-size: 14px; color: #94a3b8; line-height: 1.7; margin: 0 0 28px; }
+  .q-btn-how { display: inline-block; background: #f97316; color: #fff; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 999px; text-decoration: none; transition: background .2s; }
+  .q-btn-how:hover { background: #ea580c; }
+  .q-how-steps { display: flex; flex-direction: column; gap: 28px; max-width: 340px; }
+  .q-step { display: flex; gap: 16px; align-items: flex-start; }
+  .q-step-num { font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 800; color: #f97316; width: 28px; flex-shrink: 0; padding-top: 2px; }
+  .q-step-title { font-size: 14px; font-weight: 700; color: #fff; margin: 0 0 4px; }
+  .q-step-desc { font-size: 13px; color: #64748b; line-height: 1.6; margin: 0; }
+
+  /* Artigos */
+  .q-articles { background: #fafafa; padding: 72px 24px; }
+  .q-articles-grid { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+  .q-article-card { background: #fff; border: 1px solid #f0f0f0; border-radius: 20px; padding: 24px; cursor: pointer; transition: box-shadow .2s, border-color .2s; }
+  .q-article-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.07); border-color: #fed7aa; }
+  .q-article-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .q-article-meta span { font-size: 12px; color: #bbb; }
+  .q-article-title { font-size: 14px; font-weight: 700; color: #111; margin: 0 0 8px; line-height: 1.4; }
+  .q-article-desc { font-size: 12px; color: #888; line-height: 1.6; margin: 0; }
+
+  /* FAQ */
+  .q-faq { max-width: 760px; margin: 0 auto; padding: 72px 24px; }
+  .q-faq details { border: 1px solid #f0f0f0; border-radius: 16px; background: #fff; overflow: hidden; margin-bottom: 10px; }
+  .q-faq summary { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; font-size: 14px; font-weight: 600; color: #111; cursor: pointer; list-style: none; gap: 16px; }
+  .q-faq summary::-webkit-details-marker { display: none; }
+  .q-faq-answer { padding: 0 24px 18px; font-size: 13px; color: #666; line-height: 1.7; }
+  .q-chevron { flex-shrink: 0; transition: transform .2s; color: #bbb; }
+  .q-faq details[open] .q-chevron { transform: rotate(180deg); }
+
+  /* Confianca */
+  .q-trust { background: #f0fdf4; padding: 56px 24px; }
+  .q-trust-inner { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+  .q-trust-item { display: flex; align-items: flex-start; gap: 14px; }
+  .q-trust-icon { width: 40px; height: 40px; background: #dcfce7; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #16a34a; }
+  .q-trust-title { font-size: 14px; font-weight: 700; color: #111; margin: 0 0 4px; }
+  .q-trust-desc { font-size: 12px; color: #666; line-height: 1.5; margin: 0; }
+
+  /* CTA */
+  .q-cta { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 80px 24px; text-align: center; }
+  .q-cta-title { font-family: 'Sora', sans-serif; font-size: clamp(28px, 5vw, 48px); font-weight: 800; color: #fff; margin: 0 0 16px; }
+  .q-cta-sub { font-size: 18px; color: rgba(255,255,255,.8); margin: 0 0 36px; }
+  .q-btn-cta { display: inline-block; background: #fff; color: #f97316; font-size: 17px; font-weight: 700; padding: 16px 40px; border-radius: 999px; text-decoration: none; transition: background .2s, transform .2s; box-shadow: 0 8px 32px rgba(0,0,0,.15); }
+  .q-btn-cta:hover { background: #fff7ed; transform: translateY(-2px); }
+
+  /* Footer */
+  .q-footer { border-top: 1px solid #f0f0f0; padding: 40px 24px; }
+  .q-footer-inner { max-width: 1000px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+  .q-footer-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .q-footer-logo-text { font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 800; color: #111; }
+  .q-footer-copy { font-size: 12px; color: #bbb; }
+  .q-footer-links { display: flex; gap: 20px; }
+  .q-footer-link { font-size: 12px; color: #bbb; text-decoration: none; transition: color .2s; }
+  .q-footer-link:hover { color: #666; }
+
+  @media (max-width: 640px) {
+    .q-nav-links a:not(.q-btn-enter) { display: none; }
+    .q-how-box { padding: 36px 24px; }
+    .q-how-left { max-width: 100%; }
+  }
+`;
 
 function QuillrLogo({ size = 32 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
       <defs>
-        <linearGradient id="feather-grad" x1="60" y1="5" x2="25" y2="90" gradientUnits="userSpaceOnUse">
+        <linearGradient id="fg" x1="60" y1="5" x2="25" y2="90" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#fbbf24"/>
           <stop offset="50%" stopColor="#f97316"/>
           <stop offset="100%" stopColor="#ea580c"/>
         </linearGradient>
       </defs>
-      <path d="M62 8 C72 15, 75 30, 68 45 C62 58, 48 68, 35 78 C40 60, 45 42, 42 28 C50 35, 55 50, 48 65"
-        fill="url(#feather-grad)" stroke="none"/>
-      <path d="M35 78 C38 70, 42 58, 42 28 C38 35, 35 52, 32 72 Z"
-        fill="#ea580c" opacity="0.4"/>
+      <path d="M62 8 C72 15, 75 30, 68 45 C62 58, 48 68, 35 78 C40 60, 45 42, 42 28 C50 35, 55 50, 48 65" fill="url(#fg)"/>
+      <path d="M35 78 C38 70, 42 58, 42 28 C38 35, 35 52, 32 72 Z" fill="#ea580c" opacity="0.4"/>
       <path d="M35 78 L30 88 L38 82 Z" fill="#ea580c"/>
       <ellipse cx="34" cy="90" rx="12" ry="5" fill="#1c1c1c"/>
       <ellipse cx="34" cy="88" rx="9" ry="3.5" fill="#333"/>
@@ -69,164 +134,132 @@ function QuillrLogo({ size = 32 }: { size?: number }) {
   );
 }
 
+const FEATURES = [
+  { icon: FileText, title: "Editar texto em PDF", desc: "Clique em qualquer texto do PDF e edite na hora, mantendo fonte, tamanho e cor originais." },
+  { icon: Eraser,   title: "Apagar conteudo",    desc: "Remove textos, imagens e carimbos de qualquer area sem deixar rastro." },
+  { icon: PenTool,  title: "Assinatura digital", desc: "Insira sua assinatura em contratos e formularios arrastando para qualquer posicao." },
+  { icon: Sparkles, title: "IA integrada",       desc: "Inteligencia artificial identifica fontes e cores para manter o visual original." },
+];
+
+const STEPS = [
+  { n: "01", t: "Faca upload do PDF",   d: "Arraste ou selecione o arquivo. Suporta qualquer tipo de PDF, de qualquer tamanho." },
+  { n: "02", t: "Edite o que precisar", d: "Altere textos, apague areas, adicione assinaturas com poucos cliques." },
+  { n: "03", t: "Baixe o PDF editado", d: "Clique em baixar e receba seu arquivo editado imediatamente." },
+];
+
+const ARTICLES = [
+  { title: "Como editar PDF sem instalar software", desc: "Guia completo para editar qualquer PDF direto no navegador, sem baixar programas pagos.", time: "3 min" },
+  { title: "Como assinar documentos PDF digitalmente", desc: "Aprenda a inserir assinaturas digitais validas em contratos e documentos oficiais.", time: "4 min" },
+  { title: "Como remover texto de um PDF", desc: "Passo a passo para apagar palavras, frases ou blocos inteiros de qualquer PDF.", time: "2 min" },
+  { title: "Diferenca entre PDF editavel e PDF escaneado", desc: "Entenda os tipos de PDF e como editar cada um com as ferramentas certas.", time: "5 min" },
+];
+
+const FAQS = [
+  { q: "Como editar um PDF online de graca?",       a: "Abra o Quillr no navegador, faca o upload do seu PDF e clique no texto que deseja editar. Nao precisa criar conta nem instalar nada." },
+  { q: "E seguro editar PDF online?",               a: "Sim. O Quillr processa tudo localmente no seu navegador. Seus arquivos nao ficam salvos em nenhum servidor." },
+  { q: "Posso assinar um PDF online gratuitamente?", a: "Sim. Insira sua assinatura em qualquer posicao do documento arrastando uma imagem ou posicionando manualmente." },
+  { q: "O Quillr funciona no celular?",             a: "Sim, funciona em qualquer navegador moderno incluindo Chrome e Safari no celular, sem instalar aplicativo." },
+  { q: "Como remover conteudo de um PDF?",          a: "Use a ferramenta de apagar, selecione a area desejada e o conteudo e removido sem deixar marcas." },
+  { q: "Preciso criar conta para usar?",            a: "Nao. O Quillr e totalmente gratuito e nao exige cadastro. Abra, edite e baixe sem criar conta." },
+];
+
 export default function Index() {
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Sora:wght@700;800&display=swap');
-        .sora { font-family: 'Sora', system-ui, sans-serif; }
-        * { -webkit-font-smoothing: antialiased; }
-      `}</style>
+    <div className="q-wrap">
+      <style>{CSS}</style>
 
-      {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <nav className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <QuillrLogo size={30} />
-          <span className="sora text-lg font-bold tracking-tight text-gray-900">Quillr</span>
-        </div>
-        <div className="flex items-center gap-5">
-          <a href="#como-funciona" className="text-sm text-gray-500 hover:text-gray-800 transition-colors hidden sm:block">
-            Como funciona
-          </a>
-          <a href="#precos" className="text-sm text-gray-500 hover:text-gray-800 transition-colors hidden sm:block">
-            Preços
-          </a>
-          <Link to="/dashboard" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
-            Entrar
-          </Link>
-          <Link to="/dashboard"
-            className="text-sm font-semibold bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-700 transition-all">
-            Começar grátis
-          </Link>
+      {/* Nav */}
+      <nav className="q-nav">
+        <a href="/" className="q-logo">
+          <QuillrLogo size={28} />
+          <span className="q-logo-text">Quillr</span>
+        </a>
+        <div className="q-nav-links">
+          <a href="#como-funciona" className="q-nav-link">Como funciona</a>
+          <a href="#faq" className="q-nav-link">Duvidas</a>
+          <Link to="/dashboard" className="q-btn-enter">Entrar</Link>
         </div>
       </nav>
 
-      {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="max-w-3xl mx-auto px-6 pt-20 pb-24 text-center">
-        <motion.div {...fade(0)}>
-          <span className="inline-flex items-center gap-2 text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-100 px-3.5 py-1.5 rounded-full mb-10">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-            Editor de PDF com Inteligência Artificial
-          </span>
+      {/* Hero */}
+      <section className="q-hero">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <span className="q-badge">Ferramenta gratuita de edicao de PDF online</span>
+          <h1 className="q-h1 q-sora">
+            Editar PDF Online<br />
+            <span>Gratis e Sem Cadastro</span>
+          </h1>
+          <p className="q-hero-p">
+            Edite textos, remova conteudo, adicione assinaturas e salve qualquer PDF
+            direto no navegador. Sem instalar software. Sem criar conta. 100% gratuito.
+          </p>
+          <Link to="/dashboard" className="q-btn-main">Editar meu PDF agora</Link>
+          <p className="q-hero-sub">Mais de 10.000 documentos editados. Sem cartao de credito.</p>
         </motion.div>
-
-        <motion.h1 {...fade(0.07)}
-          className="sora text-5xl md:text-6xl font-extrabold text-gray-900 leading-[1.1] tracking-tight">
-          Edite qualquer PDF<br />
-          <span className="text-orange-500">em segundos.</span>
-        </motion.h1>
-
-        <motion.p {...fade(0.14)}
-          className="mt-6 text-lg text-gray-400 leading-relaxed max-w-lg mx-auto">
-          Textos, assinaturas, apagar conteúdo — tudo direto no navegador,
-          sem instalar nada. Simples assim.
-        </motion.p>
-
-        <motion.div {...fade(0.21)} className="mt-10 flex items-center justify-center gap-3 flex-wrap">
-          <Link to="/dashboard"
-            className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold px-7 py-3.5 rounded-full transition-all shadow-sm hover:shadow-lg hover:shadow-orange-100">
-            Criar conta grátis
-            <ArrowRight size={15} />
-          </Link>
-          <Link to="/dashboard"
-            className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-800 font-medium px-6 py-3.5 rounded-full border border-gray-200 hover:border-gray-300 transition-all text-sm">
-            Já tenho conta
-          </Link>
-        </motion.div>
-
-        <motion.p {...fade(0.28)} className="mt-5 text-xs text-gray-400">
-          Sem cartão de crédito · 3 documentos gratuitos por semana
-        </motion.p>
       </section>
 
-      {/* ── Before / After ──────────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 pb-24">
-        <div className="text-center mb-10">
-          <motion.h2
-            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }} transition={{ duration: 0.45 }}
-            className="sora text-3xl font-bold text-gray-900">
-            Veja o que você pode fazer
-          </motion.h2>
-          <p className="mt-2 text-gray-400 text-sm">Edite nomes, datas, assinaturas e muito mais</p>
+      {/* Ad topo */}
+      <div className="q-ad">
+        <div className="q-ad-slot">Espaco para anuncio — Google AdSense</div>
+      </div>
+
+      {/* Stats */}
+      <div className="q-stats">
+        <div className="q-stats-inner">
+          {[
+            { num: "10.000+", label: "PDFs editados" },
+            { num: "100%",    label: "Gratuito" },
+            { num: "0",       label: "Cadastros necessarios" },
+            { num: "3s",      label: "Para comecar a editar" },
+          ].map(s => (
+            <motion.div key={s.label}
+              initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ duration: 0.4 }}>
+              <div className="q-stat-num q-sora">{s.num}</div>
+              <div className="q-stat-label">{s.label}</div>
+            </motion.div>
+          ))}
         </div>
+      </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.5 }}
-          className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm"
-        >
-          <div className="px-6 py-3 border-b border-gray-100 flex items-center justify-end">
-            <span className="text-xs bg-orange-100 text-orange-600 font-semibold px-2 py-1 rounded-md">Antes & Depois</span>
-          </div>
-
-          <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-            <div className="p-8">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Antes</p>
-              <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
-                <img src={ft1} alt="PDF antes da edição" className="w-full object-cover" />
-              </div>
-            </div>
-            <div className="p-8">
-              <p className="text-xs font-semibold text-orange-500 uppercase tracking-wide mb-4">Depois ✨</p>
-              <div className="rounded-2xl overflow-hidden border border-orange-200 shadow-sm">
-                <img src={ft2} alt="PDF depois da edição" className="w-full object-cover" />
-              </div>
-              <div className="mt-3 flex items-center gap-1.5 text-xs text-green-600 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                Editado em segundos com Quillr
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </section>
-
-      {/* ── Features ────────────────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 pb-24">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Features */}
+      <section className="q-features">
+        <h2 className="q-section-title q-sora">Tudo que voce precisa para editar PDF</h2>
+        <p className="q-section-sub">Ferramentas profissionais, interface simples, resultado imediato</p>
+        <div className="q-features-grid">
           {FEATURES.map((f, i) => (
-            <motion.div key={f.title}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.06, duration: 0.4 }}
-              className="p-6 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all group cursor-default"
-            >
-              <div className="w-9 h-9 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center mb-4 group-hover:border-orange-100 group-hover:bg-orange-50 transition-colors">
-                <f.icon size={17} className="text-orange-500" />
-              </div>
-              <h3 className="font-semibold text-gray-900 text-sm mb-1.5">{f.title}</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">{f.desc}</p>
+            <motion.div key={f.title} className="q-feature-card"
+              initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: i * 0.08, duration: 0.4 }}>
+              <div className="q-feature-icon"><f.icon size={20} /></div>
+              <p className="q-feature-title">{f.title}</p>
+              <p className="q-feature-desc">{f.desc}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* ── Como funciona ───────────────────────────────────────────────── */}
-      <section id="como-funciona" className="max-w-5xl mx-auto px-6 pb-24">
-        <div className="rounded-3xl bg-gray-950 px-10 py-14 flex flex-col md:flex-row items-start justify-between gap-10">
-          <div className="md:max-w-xs">
-            <p className="text-orange-400 text-xs font-semibold uppercase tracking-widest mb-4">
-              Como funciona
-            </p>
-            <h2 className="sora text-3xl font-bold text-white leading-snug">
-              Três passos.<br />Resultado<br />profissional.
-            </h2>
-            <p className="mt-4 text-gray-400 text-sm leading-relaxed">
-              Sem curva de aprendizado. Se você sabe usar o computador, você sabe usar o Quillr.
-            </p>
+      {/* Ad meio */}
+      <div className="q-ad" style={{ paddingTop: 48 }}>
+        <div className="q-ad-slot">Espaco para anuncio — Google AdSense</div>
+      </div>
+
+      {/* Como funciona */}
+      <section id="como-funciona" className="q-how">
+        <div className="q-how-box">
+          <div className="q-how-left">
+            <p className="q-how-tag">Como funciona</p>
+            <h2 className="q-how-title q-sora">Edite seu PDF em 3 passos simples</h2>
+            <p className="q-how-desc">Nao precisa criar conta, nao precisa instalar nada. So abrir o navegador e comecar.</p>
+            <Link to="/dashboard" className="q-btn-how">Comecar agora</Link>
           </div>
-          <div className="flex flex-col gap-6 md:max-w-xs w-full">
-            {[
-              { n: "01", t: "Faça upload do PDF",   d: "Arraste ou selecione seu arquivo." },
-              { n: "02", t: "Edite o que precisar", d: "Textos, assinaturas ou apagar áreas." },
-              { n: "03", t: "Baixe o resultado",    d: "PDF editado pronto em segundos." },
-            ].map((s) => (
-              <div key={s.n} className="flex items-start gap-4">
-                <span className="sora text-xs font-bold text-orange-500 mt-0.5 w-6 flex-shrink-0">{s.n}</span>
+          <div className="q-how-steps">
+            {STEPS.map(s => (
+              <div key={s.n} className="q-step">
+                <span className="q-step-num q-sora">{s.n}</span>
                 <div>
-                  <p className="text-white text-sm font-semibold">{s.t}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">{s.d}</p>
+                  <p className="q-step-title">{s.t}</p>
+                  <p className="q-step-desc">{s.d}</p>
                 </div>
               </div>
             ))}
@@ -234,73 +267,92 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ── Pricing ─────────────────────────────────────────────────────── */}
-      <section id="precos" className="max-w-5xl mx-auto px-6 pb-28">
-        <div className="text-center mb-12">
-          <motion.h2
-            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }} transition={{ duration: 0.45 }}
-            className="sora text-4xl font-bold text-gray-900">
-            Preço direto ao ponto
-          </motion.h2>
-          <p className="mt-3 text-gray-400 text-sm">Sem taxas escondidas. Cancele quando quiser.</p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          {PLANS.map((plan, i) => (
-            <motion.div key={plan.name}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08, duration: 0.4 }}
-              className={`relative p-8 rounded-2xl border transition-all flex flex-col ${
-                plan.highlight
-                  ? "border-orange-300 bg-orange-50 shadow-md shadow-orange-100"
-                  : "border-gray-100 bg-gray-50/50"
-              }`}
-            >
-              {plan.highlight && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
-                  Mais popular
-                </span>
-              )}
-              <p className="text-sm font-semibold text-gray-500">{plan.name}</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="sora text-4xl font-bold text-gray-900">{plan.price}</span>
-                <span className="text-gray-400 text-sm">{plan.period}</span>
+      {/* Confianca */}
+      <div className="q-trust">
+        <div className="q-trust-inner">
+          {[
+            { icon: Shield, title: "100% privado",       desc: "Seus arquivos nao sao armazenados em nenhum servidor. Tudo fica no seu navegador." },
+            { icon: Zap,    title: "Rapido e gratuito",  desc: "Sem cadastro, sem espera. Abra o site e comece a editar em segundos." },
+            { icon: Globe,  title: "Funciona em tudo",   desc: "Windows, Mac, Linux, Android, iOS. Qualquer navegador moderno." },
+            { icon: FileText, title: "Qualquer PDF",     desc: "PDFs de texto, formularios, contratos, escaneados. Todos funcionam." },
+          ].map((t, i) => (
+            <motion.div key={t.title} className="q-trust-item"
+              initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: i * 0.07, duration: 0.4 }}>
+              <div className="q-trust-icon"><t.icon size={18} /></div>
+              <div>
+                <p className="q-trust-title">{t.title}</p>
+                <p className="q-trust-desc">{t.desc}</p>
               </div>
-              <ul className="mt-6 space-y-2.5 flex-1">
-                {plan.features.map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm text-gray-600">
-                    <Check size={13} className="text-orange-500 flex-shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link to={plan.link}
-                className={`mt-8 block text-center text-sm font-semibold py-3 rounded-full transition-all ${
-                  plan.highlight
-                    ? "bg-orange-500 text-white hover:bg-orange-600 shadow-sm"
-                    : "bg-gray-900 text-white hover:bg-gray-700"
-                }`}>
-                {plan.cta}
-              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Artigos SEO */}
+      <section className="q-articles">
+        <h2 className="q-section-title q-sora">Guias sobre edicao de PDF</h2>
+        <p className="q-section-sub">Tutoriais para voce editar qualquer tipo de documento</p>
+        <div className="q-articles-grid">
+          {ARTICLES.map((a, i) => (
+            <motion.div key={a.title} className="q-article-card"
+              initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: i * 0.07, duration: 0.4 }}>
+              <div className="q-article-meta">
+                <FileText size={13} color="#f97316" />
+                <span>{a.time} de leitura</span>
+              </div>
+              <p className="q-article-title">{a.title}</p>
+              <p className="q-article-desc">{a.desc}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="border-t border-gray-100 py-10">
-        <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <QuillrLogo size={22} />
-            <span className="sora text-sm font-bold text-gray-900">Quillr</span>
-          </div>
-          <p className="text-xs text-gray-400">© 2026 Quillr. Todos os direitos reservados.</p>
-          <div className="flex gap-5">
-            <a href="#" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacidade</a>
-            <a href="#" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Termos</a>
+      {/* Ad antes FAQ */}
+      <div className="q-ad" style={{ paddingTop: 48 }}>
+        <div className="q-ad-slot">Espaco para anuncio — Google AdSense</div>
+      </div>
+
+      {/* FAQ */}
+      <section id="faq" className="q-faq">
+        <h2 className="q-section-title q-sora">Perguntas frequentes</h2>
+        <p className="q-section-sub">Tudo que voce precisa saber sobre edicao de PDF online</p>
+        <div style={{ marginTop: 40 }}>
+          {FAQS.map((f, i) => (
+            <motion.details key={i}
+              initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: i * 0.05, duration: 0.4 }}>
+              <summary>
+                {f.q}
+                <ChevronDown size={16} className="q-chevron" />
+              </summary>
+              <p className="q-faq-answer">{f.a}</p>
+            </motion.details>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA final */}
+      <section className="q-cta">
+        <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
+          <h2 className="q-cta-title q-sora">Pronto para editar seu PDF?</h2>
+          <p className="q-cta-sub">Gratuito, sem cadastro, sem limite. Acesse agora e edite em segundos.</p>
+          <Link to="/dashboard" className="q-btn-cta">Editar PDF gratis agora</Link>
+        </motion.div>
+      </section>
+
+      {/* Footer */}
+      <footer className="q-footer">
+        <div className="q-footer-inner">
+          <a href="/" className="q-footer-logo">
+            <QuillrLogo size={20} />
+            <span className="q-footer-logo-text">Quillr</span>
+          </a>
+          <p className="q-footer-copy">© 2026 Quillr. Ferramenta gratuita de edicao de PDF online.</p>
+          <div className="q-footer-links">
+            <a href="#" className="q-footer-link">Privacidade</a>
+            <a href="#" className="q-footer-link">Termos</a>
           </div>
         </div>
       </footer>
