@@ -431,7 +431,15 @@ export default function Index() {
           <Link to="/dashboard" className="q-btn-cta">Editar PDF gratis agora</Link>
         </motion.div>
       </section>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-JNTEDCDJF7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
 
+  gtag('config', 'G-JNTEDCDJF7');
+</script>
       {/* Footer */}
       <footer className="q-footer">
         <div className="q-footer-inner">
