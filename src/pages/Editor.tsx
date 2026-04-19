@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 
 // @ts-ignore
 import Toolbar from "@/components/Toolbar";
@@ -18,33 +17,6 @@ import {
 } from "@/services/api";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-async function uploadToRailway(filePath: string, filename: string) {
-  const { data: urlData } = await supabase.storage
-    .from("pdfs").createSignedUrl(filePath, 600);
-  if (!urlData?.signedUrl) throw new Error("Erro ao acessar o arquivo.");
-  const blob = await fetch(urlData.signedUrl).then(r => r.blob());
-  const file = new File([blob], filename, { type: "application/pdf" });
-  const form = new FormData();
-  form.append("file", file);
-  const res  = await fetch(`${API_BASE}/upload`, { method: "POST", body: form });
-  const data = await res.json();
-  if (!data.session_id) throw new Error("Falha no upload para o editor.");
-  return data;
-}
-
-async function syncEditedPdfToSupabase(sessionId: string, filePath: string) {
-  try {
-    const res = await fetch(`${API_BASE}/download/${sessionId}`);
-    if (!res.ok) return false;
-    const blob = await res.blob();
-    const { error } = await supabase.storage
-      .from("pdfs")
-      .update(filePath, blob, { contentType: "application/pdf", upsert: true });
-    if (error) { console.error("[sync] erro:", error); return false; }
-    return true;
-  } catch (e) { console.error("[sync] falha:", e); return false; }
-}
 
 const DEFAULT_TEXT_STYLE = {
   fontName: "arial",
@@ -74,23 +46,20 @@ const Editor = () => {
   const [pending, setPending]           = useState<any[]>([]);
   const [textEdits, setTextEdits]       = useState<any>({});
   const [imgTimestamp, setImgTimestamp] = useState(() => Date.now());
-
-  // Elementos de texto arrastáveis (modo lápis — ainda não gravados no PDF)
   const [textElements, setTextElements]       = useState<any[]>([]);
   const [textStyle, setTextStyle]             = useState(DEFAULT_TEXT_STYLE);
   const [pendingTextRect, setPendingTextRect] = useState<any>(null);
   const [textInput, setTextInput]             = useState("");
   const [showTextToolbar, setShowTextToolbar] = useState(false);
-
-  // Histórico Ctrl+Z
   const [history, setHistory] = useState<string[]>([]);
+
   const pushHistory = useCallback(async (sessionId: string) => {
     try {
       const res = await fetch(`${API_BASE}/snapshot/${sessionId}`, { method: "POST" });
       if (!res.ok) return;
       const data = await res.json();
       if (data.snapshot_id) setHistory(prev => [...prev.slice(-19), data.snapshot_id]);
-    } catch { /* silencioso */ }
+    } catch { }
   }, []);
 
   const hasPending = pending.length > 0 || Object.keys(textEdits).length > 0 || textElements.length > 0;
@@ -131,7 +100,7 @@ const Editor = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [history, session, textElements]);
 
-  // Init
+  // Init — sem Supabase, session vem do localStorage
   useEffect(() => {
     if (!id || !user?.id) return;
     if (initialized.current) return;
@@ -139,21 +108,16 @@ const Editor = () => {
 
     const init = async () => {
       try {
-        const { data: doc, error: docErr } = await supabase
-          .from("documents").select("*")
-          .eq("id", id).eq("user_id", user.id).single();
-        if (docErr || !doc) { setError("Documento não encontrado."); return; }
-
-        sessionStorage.setItem(`doc_${id}`, JSON.stringify({ file_path: doc.file_path, name: doc.name }));
-
+        // Tenta sessão já existente
         const stored = sessionStorage.getItem(`session_${id}`);
-        if (stored) { setSession(JSON.parse(stored)); setLoading(false); return; }
+        if (stored) {
+          setSession(JSON.parse(stored));
+          setLoading(false);
+          return;
+        }
 
-        sb("Carregando documento...");
-        const sessionData = await uploadToRailway(doc.file_path, doc.name);
-        sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
-        await supabase.from("documents").update({ status: "editing" }).eq("id", id);
-        setSession(sessionData);
+        // Sessão não existe mais (Railway expirou) — não tem como recuperar sem o arquivo
+        setError("Sessão expirada. Por favor, faça upload do PDF novamente.");
       } catch (e: any) {
         setError(e.message || "Erro ao carregar editor.");
       } finally {
@@ -163,7 +127,7 @@ const Editor = () => {
     init();
   }, [id, user?.id]);
 
-  // Visibilidade
+  // Visibilidade — reconecta se sessão expirou
   useEffect(() => {
     if (!id) return;
     const handle = async () => {
@@ -177,30 +141,14 @@ const Editor = () => {
       try {
         const res = await fetch(`${API_BASE}/session-check/${parsed.session_id}`);
         if (!res.ok) {
-          const storedDoc = sessionStorage.getItem(`doc_${id}`);
-          if (!storedDoc) return;
-          const doc = JSON.parse(storedDoc);
-          sb("Reconectando...");
-          const sessionData = await uploadToRailway(doc.file_path, doc.name);
-          sessionStorage.setItem(`session_${id}`, JSON.stringify(sessionData));
-          setSession(sessionData);
-          const savedEdits = sessionStorage.getItem(`edits_${id}`);
-          if (savedEdits) {
-            const { pending: p, textEdits: t, page: pg } = JSON.parse(savedEdits);
-            setPending(p || []); setTextEdits(t || {}); setPage(pg || 0);
-            if ((p?.length > 0) || Object.keys(t || {}).length > 0)
-              sb("⚠️ Edições pendentes restauradas · Aperte Salvar para aplicar");
-            else sb('Clique em "Extrair Textos" para começar');
-          }
-          setBlocks([]); refreshImage();
+          setError("Sessão expirada. Volte ao painel e faça upload novamente.");
         }
-      } catch { /* silencioso */ }
+      } catch { }
     };
     document.addEventListener("visibilitychange", handle);
     return () => document.removeEventListener("visibilitychange", handle);
   }, [id, pending, textEdits, page]);
 
-  // Extrair
   const handleExtract = async () => {
     if (!session) return;
     setExtracting(true); sb("Extraindo textos...");
@@ -212,7 +160,6 @@ const Editor = () => {
     finally { setExtracting(false); }
   };
 
-  // Edição modo extrair
   const handleBlockClick = (block: any) => {
     if (mode !== "edit") return;
     if (block._confirmedText !== undefined) {
@@ -247,7 +194,6 @@ const Editor = () => {
     }
   };
 
-  // Seleção de área
   const handleSelection = async (rect: any) => {
     if (!session) return;
     if (mode === "erase") {
@@ -276,7 +222,6 @@ const Editor = () => {
     sb("Imagem colada · Aperte Salvar");
   };
 
-  // Confirmar texto → vira elemento arrastável
   const handleConfirmText = () => {
     if (!textInput.trim() || !pendingTextRect) return;
     const newEl = {
@@ -294,7 +239,7 @@ const Editor = () => {
     setShowTextToolbar(false);
     setPendingTextRect(null);
     setTextInput("");
-    sb("Texto adicionado · Arraste para posicionar · Duplo clique para editar · Salvar para gravar");
+    sb("Texto adicionado · Arraste para posicionar · Salvar para gravar");
   };
 
   const handleCancelText = () => {
@@ -304,7 +249,6 @@ const Editor = () => {
     sb("Cancelado");
   };
 
-  // Atualizar / remover elemento arrastável
   const handleUpdateTextElement = (elId: string, updates: any) => {
     setTextElements(prev => prev.map(el => el.id === elId ? { ...el, ...updates } : el));
   };
@@ -313,7 +257,6 @@ const Editor = () => {
     setTextElements(prev => prev.filter(el => el.id !== elId));
   };
 
-  // Salvar
   const handleSave = async () => {
     if (!session || !hasPending) return;
     setSaving(true); sb("💾 Salvando...");
@@ -326,7 +269,6 @@ const Editor = () => {
       for (const p of pending.filter(p => p.type === "signature"))
         await addSignature(session.session_id, p.page, p.rect, p.file);
 
-      // Grava elementos de texto do lápis
       for (const el of textElements) {
         await fetch(`${API_BASE}/add-text`, {
           method: "POST",
@@ -348,7 +290,6 @@ const Editor = () => {
         });
       }
 
-      // Textos extraídos editados
       const edits = Object.values(textEdits).map(({ block, new_text, page }: any) => ({
         page, block_id: block.id, original_text: block.text, new_text,
         x0: block.x0, y0: block.y0, x1: block.x1, y1: block.y1,
@@ -357,20 +298,11 @@ const Editor = () => {
       }));
       if (edits.length > 0) await saveTextEdits(session.session_id, edits);
 
-      // Sincroniza pro Supabase
-      const storedDoc = sessionStorage.getItem(`doc_${id}`);
-      if (storedDoc) {
-        const { file_path } = JSON.parse(storedDoc);
-        sb("💾 Sincronizando PDF...");
-        await syncEditedPdfToSupabase(session.session_id, file_path);
-      }
-
       setPending([]);
       setTextEdits({});
       setTextElements([]);
       setBlocks(prev => prev.map(b => ({ ...b, _edited: false, _new_text: undefined })));
       refreshImage();
-      await supabase.from("documents").update({ status: "completed" }).eq("id", id);
       sb("✅ Salvo! Clique em Baixar para obter o PDF editado.");
     } catch (e: any) {
       sb(`❌ Erro ao salvar: ${e.message}`);
@@ -385,7 +317,6 @@ const Editor = () => {
     sb("Página " + (n + 1));
   };
 
-  // Render
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
       <div className="w-10 h-10 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
@@ -396,7 +327,9 @@ const Editor = () => {
   if (error) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
       <p className="text-red-400">{error}</p>
-      <button onClick={() => navigate("/dashboard")} className="text-orange-400 underline text-sm">Voltar ao painel</button>
+      <button onClick={() => navigate("/dashboard")} className="text-orange-400 underline text-sm">
+        Voltar ao painel
+      </button>
     </div>
   );
 
