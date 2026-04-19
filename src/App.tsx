@@ -26,42 +26,30 @@ function App() {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route
-              path="/onboarding"
-              element={
-                <ProtectedRoute>
-                  <Onboarding />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <OnboardingGuard>
-                    <Dashboard />
-                  </OnboardingGuard>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/editor/:id"
-              element={
-                <ProtectedRoute>
-                  <OnboardingGuard>
-                    <Editor />
-                  </OnboardingGuard>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/checkout"
-              element={
-                <ProtectedRoute>
-                  <Checkout />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/onboarding" element={
+              <ProtectedRoute>
+                <Onboarding />
+              </ProtectedRoute>
+            }/>
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <OnboardingGuard>
+                  <Dashboard />
+                </OnboardingGuard>
+              </ProtectedRoute>
+            }/>
+            <Route path="/editor/:id" element={
+              <ProtectedRoute>
+                <OnboardingGuard>
+                  <Editor />
+                </OnboardingGuard>
+              </ProtectedRoute>
+            }/>
+            <Route path="/checkout" element={
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            }/>
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />
             <Route path="/payment/failure" element={<PaymentFailure />} />
@@ -73,5 +61,4 @@ function App() {
     </QueryClientProvider>
   );
 }
-
 export default App;
