@@ -53,6 +53,9 @@ const Editor = () => {
   const [showTextToolbar, setShowTextToolbar] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
 
+  // ── Mobile drawer state ──────────────────────────────────────────────────
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const pushHistory = useCallback(async (sessionId: string) => {
     try {
       const res = await fetch(`${API_BASE}/snapshot/${sessionId}`, { method: "POST" });
@@ -100,7 +103,7 @@ const Editor = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [history, session, textElements]);
 
-  // Init — sem Supabase, session vem do localStorage
+  // Init
   useEffect(() => {
     if (!id || !user?.id) return;
     if (initialized.current) return;
@@ -108,15 +111,12 @@ const Editor = () => {
 
     const init = async () => {
       try {
-        // Tenta sessão já existente
         const stored = sessionStorage.getItem(`session_${id}`);
         if (stored) {
           setSession(JSON.parse(stored));
           setLoading(false);
           return;
         }
-
-        // Sessão não existe mais (Railway expirou) — não tem como recuperar sem o arquivo
         setError("Sessão expirada. Por favor, faça upload do PDF novamente.");
       } catch (e: any) {
         setError(e.message || "Erro ao carregar editor.");
@@ -127,7 +127,7 @@ const Editor = () => {
     init();
   }, [id, user?.id]);
 
-  // Visibilidade — reconecta se sessão expirou
+  // Visibilidade
   useEffect(() => {
     if (!id) return;
     const handle = async () => {
@@ -156,6 +156,8 @@ const Editor = () => {
       const result = await extractText(session.session_id, page);
       setBlocks(result);
       sb(`✅ ${result.length} blocos extraídos`);
+      // Abre o drawer automaticamente no mobile após extrair
+      if (result.length > 0) setDrawerOpen(true);
     } catch { sb("❌ Erro ao extrair textos"); }
     finally { setExtracting(false); }
   };
@@ -339,6 +341,7 @@ const Editor = () => {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
       <Toolbar
         mode={mode} setMode={setMode}
         page={page} pageCount={session.page_count}
@@ -353,19 +356,36 @@ const Editor = () => {
         onUndo={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }))}
       />
 
-      <div className="text-gray-400 text-xs px-3 py-1 border-b border-gray-200 flex items-center gap-2">
+      {/* ── Status bar ───────────────────────────────────────────────────── */}
+      <div className="text-gray-400 text-xs px-3 py-1 border-b border-gray-200 flex items-center gap-2 flex-wrap">
         <button onClick={() => navigate("/dashboard")} className="text-orange-400 hover:text-orange-300 mr-2">← Painel</button>
-        <span>{status}</span>
-        {mode === "erase"     && <span className="text-red-400 ml-2">Arraste sobre a área que deseja apagar</span>}
-        {mode === "signature" && <span className="text-blue-400 ml-2">Arraste para posicionar · Ctrl+V para colar</span>}
-        {mode === "pencil"    && <span className="text-green-600 ml-2">Arraste para selecionar onde adicionar texto</span>}
+        <span className="truncate max-w-[160px] sm:max-w-none">{status}</span>
+        {mode === "erase"     && <span className="text-red-400 ml-2 hidden sm:inline">Arraste sobre a área que deseja apagar</span>}
+        {mode === "signature" && <span className="text-blue-400 ml-2 hidden sm:inline">Arraste para posicionar · Ctrl+V para colar</span>}
+        {mode === "pencil"    && <span className="text-green-600 ml-2 hidden sm:inline">Arraste para selecionar onde adicionar texto</span>}
+
+        {/* Botão "Textos" para abrir o drawer no mobile */}
+        {blocks.length > 0 && (
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="ml-auto sm:hidden text-orange-500 font-medium text-xs border border-orange-400 rounded px-2 py-0.5"
+          >
+            Textos ({blocks.length})
+          </button>
+        )}
+
         {currentTextElements.length > 0 && (
-          <span className="text-orange-500 ml-auto">{currentTextElements.length} texto(s) flutuante(s) · Salvar para gravar</span>
+          <span className="text-orange-500 ml-auto hidden sm:inline">
+            {currentTextElements.length} texto(s) flutuante(s) · Salvar para gravar
+          </span>
         )}
       </div>
 
+      {/* ── Main content ─────────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-6">
+
+        {/* Canvas — ocupa 100% no mobile, flex-1 no desktop */}
+        <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-2 sm:p-6">
           <div className="w-full max-w-3xl relative">
             <PDFCanvas
               imageUrl={`${renderPage(session.session_id, page)}&t=${imgTimestamp}`}
@@ -393,7 +413,72 @@ const Editor = () => {
             )}
           </div>
         </div>
-        <TextPanel blocks={blocks} onEdit={handlePanelEdit} onFocus={setHoveredBlock} editCount={editCount} />
+
+        {/* TextPanel — sidebar no desktop, escondido no mobile (vira drawer) */}
+        <div className="hidden sm:block">
+          <TextPanel
+            blocks={blocks}
+            onEdit={handlePanelEdit}
+            onFocus={setHoveredBlock}
+            editCount={editCount}
+          />
+        </div>
+      </div>
+
+      {/* ── Mobile Drawer ─────────────────────────────────────────────────── */}
+      {/* Overlay */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 sm:hidden"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* Drawer panel */}
+      <div
+        className={`
+          fixed bottom-0 left-0 right-0 z-50 sm:hidden
+          bg-white rounded-t-2xl shadow-2xl
+          transition-transform duration-300 ease-in-out
+          ${drawerOpen ? "translate-y-0" : "translate-y-full"}
+        `}
+        style={{ maxHeight: "75vh", display: "flex", flexDirection: "column" }}
+      >
+        {/* Drawer handle + header */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
+          {/* drag handle */}
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-300 rounded-full" />
+          <span className="text-sm font-semibold text-gray-700 mt-1">Textos Extraídos</span>
+          <button
+            onClick={() => setDrawerOpen(false)}
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none mt-1"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Panel content — scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <TextPanel
+            blocks={blocks}
+            onEdit={handlePanelEdit}
+            onFocus={(block: any) => { setHoveredBlock(block); setDrawerOpen(false); }}
+            editCount={editCount}
+          />
+        </div>
+
+        {/* Footer com edições pendentes */}
+        {editCount > 0 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-xs text-orange-500">{editCount} edição(ões) pendente(s)</span>
+            <button
+              onClick={() => { setDrawerOpen(false); handleSave(); }}
+              className="bg-orange-500 text-white text-xs px-4 py-1.5 rounded-lg font-medium"
+            >
+              Salvar
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
