@@ -44,7 +44,6 @@ const CSS = `
   .q-feature-title { font-size: 15px; font-weight: 700; color: #111; margin: 0 0 10px; }
   .q-feature-desc { font-size: 13px; color: #777; line-height: 1.65; margin: 0; }
 
-  /* Blog posts */
   .q-blog-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; }
   .q-blog-card { background: #fff; border: 1px solid #f0f0f0; border-radius: 20px; overflow: hidden; transition: all .2s; cursor: pointer; }
   .q-blog-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,.09); transform: translateY(-3px); }
@@ -56,7 +55,6 @@ const CSS = `
   .q-blog-meta { font-size: 12px; color: #bbb; }
   .q-blog-read { font-size: 13px; color: #f97316; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; }
 
-  /* Como funciona */
   .q-how-box { background: #0f172a; border-radius: 28px; padding: 60px 52px; display: flex; flex-wrap: wrap; gap: 56px; justify-content: space-between; align-items: flex-start; }
   .q-how-left { max-width: 340px; }
   .q-how-tag { font-size: 11px; font-weight: 700; color: #fb923c; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 16px; }
@@ -70,7 +68,6 @@ const CSS = `
   .q-step-title { font-size: 15px; font-weight: 700; color: #fff; margin: 0 0 6px; }
   .q-step-desc { font-size: 13px; color: #64748b; line-height: 1.65; margin: 0; }
 
-  /* Imagem + texto */
   .q-imgtext { display: flex; flex-wrap: wrap; gap: 56px; align-items: center; }
   .q-imgtext-img { flex: 1 1 340px; border-radius: 20px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,.1); }
   .q-imgtext-img img { width: 100%; height: 320px; object-fit: cover; display: block; }
@@ -83,7 +80,6 @@ const CSS = `
   .q-btn-secondary { display: inline-block; background: #111; color: #fff; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 999px; text-decoration: none; transition: background .2s; }
   .q-btn-secondary:hover { background: #333; }
 
-  /* Trust */
   .q-trust { background: #f0fdf4; padding: 64px 24px; }
   .q-trust-inner { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px; }
   .q-trust-item { display: flex; align-items: flex-start; gap: 16px; }
@@ -91,7 +87,6 @@ const CSS = `
   .q-trust-title { font-size: 14px; font-weight: 700; color: #111; margin: 0 0 5px; }
   .q-trust-desc { font-size: 13px; color: #666; line-height: 1.55; margin: 0; }
 
-  /* FAQ */
   .q-faq-wrap { max-width: 760px; margin: 0 auto; }
   .q-faq details { border: 1px solid #efefef; border-radius: 16px; background: #fff; overflow: hidden; margin-bottom: 10px; }
   .q-faq summary { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; font-size: 15px; font-weight: 600; color: #111; cursor: pointer; list-style: none; gap: 16px; }
@@ -100,7 +95,6 @@ const CSS = `
   .q-chevron { flex-shrink: 0; transition: transform .25s; color: #bbb; }
   .q-faq details[open] .q-chevron { transform: rotate(180deg); }
 
-  /* CTA */
   .q-cta { background: linear-gradient(135deg, #f97316 0%, #dc2626 100%); padding: 96px 24px; text-align: center; }
   .q-cta-title { font-family: 'Sora', sans-serif; font-size: clamp(30px, 5vw, 52px); font-weight: 800; color: #fff; margin: 0 0 18px; }
   .q-cta-sub { font-size: 18px; color: rgba(255,255,255,.82); margin: 0 0 40px; }
@@ -181,14 +175,14 @@ const STEPS = [
 ];
 
 const FAQS = [
-  { q: "Como editar um PDF online de graca?",        a: "Abra o Quillr no navegador, faca o upload do seu PDF e clique no texto que deseja editar. Nao precisa criar conta nem instalar nada. O processo leva menos de 30 segundos." },
-  { q: "E seguro editar PDF online no Quillr?",      a: "Sim. O Quillr processa os arquivos diretamente no servidor de forma segura e nao armazena seus documentos apos o download. Seus arquivos sao deletados automaticamente." },
-  { q: "Posso assinar um PDF gratuitamente?",        a: "Sim. Insira sua assinatura em qualquer posicao do documento arrastando uma imagem PNG com fundo transparente ou posicionando manualmente onde quiser." },
-  { q: "O Quillr funciona no celular?",              a: "Sim, funciona em qualquer navegador moderno incluindo Chrome e Safari no Android e iOS, sem instalar aplicativo nenhum." },
-  { q: "Como apagar conteudo de um PDF?",            a: "Use a ferramenta de borracha, selecione a area que deseja remover e o conteudo e apagado sem deixar marcas ou residuos visiveis no documento final." },
-  { q: "Preciso criar conta para usar o Quillr?",   a: "Nao. O Quillr e completamente gratuito e nao exige nenhum cadastro. Abra o site, edite seu PDF e baixe. Simples assim." },
-  { q: "Qual o tamanho maximo de PDF aceito?",       a: "O Quillr aceita arquivos PDF de ate 100MB, o que cobre a grande maioria dos documentos do dia a dia, incluindo contratos longos e relatorios com imagens." },
-  { q: "Posso editar um PDF escaneado?",             a: "Sim. O Quillr possui tecnologia OCR que reconhece textos em PDFs escaneados e permite editar o conteudo identificado pela inteligencia artificial." },
+  { q: "Como editar um PDF online de graca?",       a: "Abra o Quillr no navegador, faca o upload do seu PDF e clique no texto que deseja editar. Nao precisa criar conta nem instalar nada. O processo leva menos de 30 segundos." },
+  { q: "E seguro editar PDF online no Quillr?",     a: "Sim. O Quillr processa os arquivos diretamente no servidor de forma segura e nao armazena seus documentos apos o download. Seus arquivos sao deletados automaticamente." },
+  { q: "Posso assinar um PDF gratuitamente?",       a: "Sim. Insira sua assinatura em qualquer posicao do documento arrastando uma imagem PNG com fundo transparente ou posicionando manualmente onde quiser." },
+  { q: "O Quillr funciona no celular?",             a: "Sim, funciona em qualquer navegador moderno incluindo Chrome e Safari no Android e iOS, sem instalar aplicativo nenhum." },
+  { q: "Como apagar conteudo de um PDF?",           a: "Use a ferramenta de borracha, selecione a area que deseja remover e o conteudo e apagado sem deixar marcas ou residuos visiveis no documento final." },
+  { q: "Preciso criar conta para usar o Quillr?",  a: "Nao. O Quillr e completamente gratuito e nao exige nenhum cadastro. Abra o site, edite seu PDF e baixe. Simples assim." },
+  { q: "Qual o tamanho maximo de PDF aceito?",      a: "O Quillr aceita arquivos PDF de ate 100MB, o que cobre a grande maioria dos documentos do dia a dia, incluindo contratos longos e relatorios com imagens." },
+  { q: "Posso editar um PDF escaneado?",            a: "Sim. O Quillr possui tecnologia OCR que reconhece textos em PDFs escaneados e permite editar o conteudo identificado pela inteligencia artificial." },
 ];
 
 export default function Index() {
@@ -210,14 +204,13 @@ export default function Index() {
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* Hero — h1 fora do motion para SEO */}
       <section className="q-hero">
+        <span className="q-badge">Ferramenta gratuita — sem cadastro necessario</span>
+        <h1 className="q-h1 q-sora">
+          Editar PDF Online — <span>Gratis e Sem Cadastro</span>
+        </h1>
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
-          <span className="q-badge">Ferramenta gratuita — sem cadastro necessario</span>
-          <h1 className="q-h1 q-sora">
-            Editar PDF Online<br />
-            <span>Gratis e Sem Cadastro</span>
-          </h1>
           <p className="q-hero-p">
             Edite textos, remova conteudo, adicione assinaturas e salve qualquer PDF
             direto no navegador. Sem instalar software. Sem criar conta. 100% gratuito.
@@ -273,7 +266,7 @@ export default function Index() {
               initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.55 }}>
               <img
-                src="https://i0.wp.com/cursapt.wpcomstaging.com/wp-content/uploads/2025/05/pessoa-utilizando-o-libreoffice-impress-em-um-computador-criando-slides-modernos-em-um-ambiente-de-estudo-ou-escritorio-estilo-realista-e-profissional.jpg?fit=1536%2C1024&ssl=1"
+                src="https://images.unsplash.com/photo-1633613286991-611fe299a4be?w=800&q=80"
                 alt="Pessoa editando PDF online no computador"
               />
             </motion.div>
@@ -298,7 +291,7 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Imagem + texto — bloco 2 (invertido) */}
+      {/* Imagem + texto — bloco 2 */}
       <section className="q-section q-section-alt">
         <div className="q-container">
           <div className="q-imgtext" style={{ flexDirection: "row-reverse" }}>
@@ -384,10 +377,10 @@ export default function Index() {
       <div className="q-trust">
         <div className="q-trust-inner">
           {[
-            { icon: Shield, title: "100% privado",      desc: "Seus arquivos nao sao armazenados permanentemente. Deletados automaticamente apos o download." },
-            { icon: Zap,    title: "Rapido e gratuito", desc: "Sem cadastro, sem espera. Abra o site e comece a editar em menos de 30 segundos." },
-            { icon: Globe,  title: "Funciona em tudo",  desc: "Windows, Mac, Linux, Android e iOS. Qualquer navegador moderno sem instalar nada." },
-            { icon: FileText, title: "Qualquer PDF",    desc: "PDFs de texto, formularios, contratos, escaneados e com senha. Todos suportados." },
+            { icon: Shield,   title: "100% privado",      desc: "Seus arquivos nao sao armazenados permanentemente. Deletados automaticamente apos o download." },
+            { icon: Zap,      title: "Rapido e gratuito", desc: "Sem cadastro, sem espera. Abra o site e comece a editar em menos de 30 segundos." },
+            { icon: Globe,    title: "Funciona em tudo",  desc: "Windows, Mac, Linux, Android e iOS. Qualquer navegador moderno sem instalar nada." },
+            { icon: FileText, title: "Qualquer PDF",      desc: "PDFs de texto, formularios, contratos, escaneados e com senha. Todos suportados." },
           ].map((t, i) => (
             <motion.div key={t.title} className="q-trust-item"
               initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }}
@@ -431,7 +424,7 @@ export default function Index() {
           <Link to="/dashboard" className="q-btn-cta">Editar PDF gratis agora</Link>
         </motion.div>
       </section>
-      
+
       {/* Footer */}
       <footer className="q-footer">
         <div className="q-footer-inner">
