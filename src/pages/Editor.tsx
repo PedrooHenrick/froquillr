@@ -55,6 +55,14 @@ const Editor = () => {
 
   // ── Mobile drawer state ──────────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Detectar mudança de tamanho da tela
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const pushHistory = useCallback(async (sessionId: string) => {
     try {
@@ -157,7 +165,7 @@ const Editor = () => {
       setBlocks(result);
       sb(`✅ ${result.length} blocos extraídos`);
       // Abre o drawer automaticamente no mobile após extrair
-      if (result.length > 0) setDrawerOpen(true);
+      if (result.length > 0 && isMobile) setDrawerOpen(true);
     } catch { sb("❌ Erro ao extrair textos"); }
     finally { setExtracting(false); }
   };
@@ -364,8 +372,8 @@ const Editor = () => {
         {mode === "signature" && <span className="text-blue-400 ml-2 hidden sm:inline">Arraste para posicionar · Ctrl+V para colar</span>}
         {mode === "pencil"    && <span className="text-green-600 ml-2 hidden sm:inline">Arraste para selecionar onde adicionar texto</span>}
 
-        {/* Botão "Textos" para abrir o drawer no mobile */}
-        {blocks.length > 0 && (
+        {/* Botão "Textos" para abrir o drawer no mobile - SÓ MOSTRA SE NÃO ESTIVER NO MOBILE DRAWER */}
+        {blocks.length > 0 && !isMobile && (
           <button
             onClick={() => setDrawerOpen(true)}
             className="ml-auto sm:hidden text-orange-500 font-medium text-xs border border-orange-400 rounded px-2 py-0.5"
@@ -414,72 +422,76 @@ const Editor = () => {
           </div>
         </div>
 
-        {/* TextPanel — sidebar no desktop, escondido no mobile (vira drawer) */}
-        <div className="hidden sm:block">
-          <TextPanel
-            blocks={blocks}
-            onEdit={handlePanelEdit}
-            onFocus={setHoveredBlock}
-            editCount={editCount}
-          />
-        </div>
+        {/* TextPanel — sidebar no desktop APENAS (não em mobile) */}
+        {!isMobile && (
+          <div className="hidden md:block w-80 border-l border-gray-200 bg-white overflow-auto">
+            <TextPanel
+              blocks={blocks}
+              onEdit={handlePanelEdit}
+              onFocus={setHoveredBlock}
+              editCount={editCount}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Mobile Drawer ─────────────────────────────────────────────────── */}
       {/* Overlay */}
-      {drawerOpen && (
+      {drawerOpen && isMobile && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 sm:hidden"
+          className="fixed inset-0 bg-black/40 z-40"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
-      {/* Drawer panel */}
-      <div
-        className={`
-          fixed bottom-0 left-0 right-0 z-50 sm:hidden
-          bg-white rounded-t-2xl shadow-2xl
-          transition-transform duration-300 ease-in-out
-          ${drawerOpen ? "translate-y-0" : "translate-y-full"}
-        `}
-        style={{ maxHeight: "75vh", display: "flex", flexDirection: "column" }}
-      >
-        {/* Drawer handle + header */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
-          {/* drag handle */}
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-300 rounded-full" />
-          <span className="text-sm font-semibold text-gray-700 mt-1">Textos Extraídos</span>
-          <button
-            onClick={() => setDrawerOpen(false)}
-            className="text-gray-400 hover:text-gray-600 text-lg leading-none mt-1"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Panel content — scrollable */}
-        <div className="flex-1 overflow-y-auto">
-          <TextPanel
-            blocks={blocks}
-            onEdit={handlePanelEdit}
-            onFocus={(block: any) => { setHoveredBlock(block); setDrawerOpen(false); }}
-            editCount={editCount}
-          />
-        </div>
-
-        {/* Footer com edições pendentes */}
-        {editCount > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-            <span className="text-xs text-orange-500">{editCount} edição(ões) pendente(s)</span>
+      {/* Drawer panel - APENAS MOBILE */}
+      {isMobile && (
+        <div
+          className={`
+            fixed bottom-0 left-0 right-0 z-50
+            bg-white rounded-t-2xl shadow-2xl
+            transition-transform duration-300 ease-in-out
+            ${drawerOpen ? "translate-y-0" : "translate-y-full"}
+          `}
+          style={{ maxHeight: "75vh", display: "flex", flexDirection: "column" }}
+        >
+          {/* Drawer handle + header */}
+          <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
+            {/* drag handle */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-300 rounded-full" />
+            <span className="text-sm font-semibold text-gray-700 mt-1">Textos Extraídos</span>
             <button
-              onClick={() => { setDrawerOpen(false); handleSave(); }}
-              className="bg-orange-500 text-white text-xs px-4 py-1.5 rounded-lg font-medium"
+              onClick={() => setDrawerOpen(false)}
+              className="text-gray-400 hover:text-gray-600 text-lg leading-none mt-1"
             >
-              Salvar
+              ✕
             </button>
           </div>
-        )}
-      </div>
+
+          {/* Panel content — scrollable */}
+          <div className="flex-1 overflow-y-auto">
+            <TextPanel
+              blocks={blocks}
+              onEdit={handlePanelEdit}
+              onFocus={(block: any) => { setHoveredBlock(block); setDrawerOpen(false); }}
+              editCount={editCount}
+            />
+          </div>
+
+          {/* Footer com edições pendentes */}
+          {editCount > 0 && (
+            <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-xs text-orange-500">{editCount} edição(ões) pendente(s)</span>
+              <button
+                onClick={() => { setDrawerOpen(false); handleSave(); }}
+                className="bg-orange-500 text-white text-xs px-4 py-1.5 rounded-lg font-medium"
+              >
+                Salvar
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
